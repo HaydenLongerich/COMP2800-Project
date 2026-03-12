@@ -7,6 +7,7 @@ import lombok.Setter;
 @Setter
 @Getter
 @Entity
+@Table(name = "PREREQUISITE")
 public class Prerequisite {
     @EmbeddedId
     private PrerequisiteId id;
