@@ -17,7 +17,9 @@ public class JavaFxApplication extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        // This is where your JavaFX UI code begins
+        javafx.scene.layout.StackPane root = new javafx.scene.layout.StackPane();
+
+        primaryStage.setScene(new javafx.scene.Scene(root, 400, 300));
         primaryStage.setTitle("COMP2800 Group Project");
         primaryStage.show();
     }
