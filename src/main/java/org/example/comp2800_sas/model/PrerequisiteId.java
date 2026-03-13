@@ -1,6 +1,7 @@
 package org.example.comp2800_sas.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -21,9 +22,9 @@ public class PrerequisiteId implements Serializable {
     public PrerequisiteId() {
     }
 
-    public PrerequisiteId(Integer courseId, Integer prerequisiteId) {
+    public PrerequisiteId(Integer courseId, Integer prerequisiteCourseId) {
         this.courseId = courseId;
-        this.prerequisiteId = prerequisiteId;
+        this.prerequisiteId = prerequisiteCourseId;
     }
 
     @Override

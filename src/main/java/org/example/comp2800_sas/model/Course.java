@@ -4,7 +4,11 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Getter
+@Setter
 @Entity
 @Table(name = "COURSE")
 public class Course {
@@ -13,17 +17,17 @@ public class Course {
     @Column(name = "course_id")
     private Integer courseId;
 
-    @Setter
     @Column(name = "code", nullable = false, unique = true, length = 10)
     private String code;
 
-    @Setter
     @Column(name = "title", nullable = false, length = 200)
     private String title;
 
-    @Setter
     @Column(name = "description")
     private String description;
+
+    @OneToMany(mappedBy = "course")
+    private List<Section> sections = new ArrayList<>();
 
     public Course() {
     }

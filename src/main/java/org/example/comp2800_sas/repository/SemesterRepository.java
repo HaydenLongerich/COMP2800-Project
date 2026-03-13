@@ -7,4 +7,5 @@ import java.util.Optional;
 
 public interface SemesterRepository extends JpaRepository<Semester, Integer> {
     Optional<Semester> findByYearAndSeason(int year, String season);
+    Optional<Semester> findByTermId(Integer termId);
 }

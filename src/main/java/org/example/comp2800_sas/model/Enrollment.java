@@ -6,26 +6,39 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 
-@Entity
-@Setter
 @Getter
+@Setter
+@Entity
 @Table(name = "ENROLLMENT")
 public class Enrollment {
+
     @EmbeddedId
-    private EnrollmentId id;
+    private EnrollmentId id = new EnrollmentId();
+
+    @ManyToOne(optional = false)
+    @MapsId("studentId")
+    @JoinColumn(name = "student_id", nullable = false)
+    private Student student;
+
+    @ManyToOne(optional = false)
+    @MapsId("sectionId")
+    @JoinColumn(name = "section_id", nullable = false)
+    private Section section;
 
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
     @Column(name = "grade", precision = 5, scale = 2)
-    private BigDecimal grade = null;
+    private BigDecimal grade;
 
     public Enrollment() {
     }
 
-    public Enrollment(EnrollmentId id, String status, BigDecimal grade) {
-        this.id = id;
+    public Enrollment(Student student, Section section, String status, BigDecimal grade) {
+        this.student = student;
+        this.section = section;
         this.status = status;
         this.grade = grade;
+        this.id = new EnrollmentId(student.getStudentId(), section.getSectionId());
     }
 }

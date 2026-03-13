@@ -6,6 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface TimeslotRepository extends JpaRepository<Timeslot, Integer> {
-    List<Timeslot> findBySectionId(Integer sectionId);
-    List<Timeslot> findByRoomId(Integer roomId);
+    List<Timeslot> findBySection_SectionId(Integer sectionId);
+    List<Timeslot> findByRoom_RoomId(Integer roomId);
 }

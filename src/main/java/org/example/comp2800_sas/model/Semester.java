@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Getter
+@Setter
 @Entity
 @Table(name = "SEMESTER")
 public class Semester {
@@ -13,19 +14,17 @@ public class Semester {
     @Column(name = "term_id")
     private Integer termId;
 
-    @Setter
     @Column(name = "year", nullable = false)
-    private int year;
+    private Integer year;
 
-    @Setter
-    @Column(name = "season", nullable = false, length = 200)
-    private String season;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "season", nullable = false, length = 20)
+    private Season season;
 
     public Semester() {
     }
 
-    public Semester(Integer termId, int year, String season) {
-        this.termId = termId;
+    public Semester(Integer year, Season season) {
         this.year = year;
         this.season = season;
     }

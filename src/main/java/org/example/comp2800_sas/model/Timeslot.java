@@ -1,12 +1,13 @@
 package org.example.comp2800_sas.model;
 
 import jakarta.persistence.*;
-import lombok.Setter;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalTime;
 
 @Getter
+@Setter
 @Entity
 @Table(name = "TIMESLOT")
 public class Timeslot {
@@ -15,33 +16,31 @@ public class Timeslot {
     @Column(name = "timeslot_id")
     private Integer timeslotId;
 
-    @Setter
-    @Column(name = "section_id", nullable = false)
-    private Integer sectionId;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "section_id", nullable = false)
+    private Section section;
 
-    @Setter
-    @Column(name = "room_id", nullable = false)
-    private Integer roomId;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "room_id", nullable = false)
+    private Room room;
 
-    @Setter
-    @Column(name = "day", nullable = false, length = 10)
-    private String day;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "day", nullable = false, length = 20)
+    private DayOfWeekType day;
 
-    @Setter
     @Column(name = "start_time", nullable = false)
     private LocalTime startTime;
 
-    @Setter
     @Column(name = "end_time", nullable = false)
     private LocalTime endTime;
 
     public Timeslot() {
     }
 
-    public Timeslot(Integer timeslotId, Integer sectionId, Integer roomId, String day, LocalTime startTime, LocalTime endTime) {
-        this.timeslotId = timeslotId;
-        this.sectionId = sectionId;
-        this.roomId = roomId;
+    public Timeslot(Section section, Room room, DayOfWeekType day,
+                    LocalTime startTime, LocalTime endTime) {
+        this.section = section;
+        this.room = room;
         this.day = day;
         this.startTime = startTime;
         this.endTime = endTime;

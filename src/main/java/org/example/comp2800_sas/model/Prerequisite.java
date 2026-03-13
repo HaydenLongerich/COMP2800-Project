@@ -4,18 +4,31 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-@Setter
 @Getter
+@Setter
 @Entity
 @Table(name = "PREREQUISITE")
 public class Prerequisite {
+
     @EmbeddedId
-    private PrerequisiteId id;
+    private PrerequisiteId id = new PrerequisiteId();
+
+    @ManyToOne(optional = false)
+    @MapsId("courseId")
+    @JoinColumn(name = "course_id", nullable = false)
+    private Course course;
+
+    @ManyToOne(optional = false)
+    @MapsId("prerequisiteId")
+    @JoinColumn(name = "prerequisite_id", nullable = false)
+    private Course prerequisiteCourse;
 
     public Prerequisite() {
     }
 
-    public Prerequisite(PrerequisiteId id) {
-        this.id = id;
+    public Prerequisite(Course course, Course prerequisiteCourse) {
+        this.course = course;
+        this.prerequisiteCourse = prerequisiteCourse;
+        this.id = new PrerequisiteId(course.getCourseId(), prerequisiteCourse.getCourseId());
     }
 }

@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Getter
+@Setter
 @Entity
 @Table(name = "SECTION")
 public class Section {
@@ -13,38 +14,35 @@ public class Section {
     @Column(name = "section_id")
     private Integer sectionId;
 
-    @Setter
-    @Column(name = "course_id", nullable = false)
-    private Integer courseId;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "course_id", nullable = false)
+    private Course course;
 
-    @Setter
-    @Column(name = "term_id", nullable = false)
-    private Integer termId;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "term_id", nullable = false)
+    private Semester term;
 
-    @Setter
-    @Column(name = "instructor_id", nullable = false)
-    private Integer instructorId;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "instructor_id", nullable = false)
+    private Instructor instructor;
 
-    @Setter
     @Column(name = "section_number", nullable = false)
     private Integer sectionNumber;
 
-    @Setter
     @Column(name = "max_capacity", nullable = false)
     private Integer maxCapacity;
 
-    @Setter
-    @Column(name = "num_enrolled")
+    @Column(name = "num_enrolled", nullable = false)
     private Integer numEnrolled;
 
     public Section() {
     }
 
-    public Section(Integer sectionId, Integer courseId, Integer termId, Integer instructorId, Integer sectionNumber, Integer maxCapacity, Integer numEnrolled) {
-        this.sectionId = sectionId;
-        this.courseId = courseId;
-        this.termId = termId;
-        this.instructorId = instructorId;
+    public Section(Course course, Semester term, Instructor instructor,
+                   Integer sectionNumber, Integer maxCapacity, Integer numEnrolled) {
+        this.course = course;
+        this.term = term;
+        this.instructor = instructor;
         this.sectionNumber = sectionNumber;
         this.maxCapacity = maxCapacity;
         this.numEnrolled = numEnrolled;

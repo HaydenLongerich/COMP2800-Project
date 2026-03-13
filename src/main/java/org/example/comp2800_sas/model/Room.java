@@ -5,32 +5,28 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Getter
+@Setter
 @Entity
 @Table(name = "ROOM")
 public class Room {
-    @Setter
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "room_id")
     private Integer roomId;
 
-    @Setter
-    @Column(name = "building", nullable = false, length = 100)
+    @Column(name = "building", nullable = false)
     private String building;
 
-    @Setter
-    @Column(name = "room_number", nullable = false, length = 20)
+    @Column(name = "room_number", nullable = false)
     private String roomNumber;
 
-    @Setter
     @Column(name = "num_seats", nullable = false)
     private Integer numSeats;
 
     public Room() {
     }
 
-    public Room(Integer roomId, String building, String roomNumber, Integer numSeats) {
-        this.roomId = roomId;
+    public Room(String building, String roomNumber, Integer numSeats) {
         this.building = building;
         this.roomNumber = roomNumber;
         this.numSeats = numSeats;

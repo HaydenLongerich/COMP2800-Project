@@ -1,10 +1,14 @@
 package org.example.comp2800_sas.model;
 
 import jakarta.persistence.*;
-import lombok.Setter;
 import lombok.Getter;
+import lombok.Setter;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
+@Setter
 @Entity
 @Table(name = "STUDENT")
 public class Student {
@@ -13,15 +17,16 @@ public class Student {
     @Column(name = "student_id")
     private Integer studentId;
 
-    @Setter
     @Column(name = "name", nullable = false)
     private String name;
+
+    @OneToMany(mappedBy = "student")
+    private List<Enrollment> enrollments = new ArrayList<>();
 
     public Student() {
     }
 
-    public Student(Integer studentId, String name) {
-        this.studentId = studentId;
+    public Student(String name) {
         this.name = name;
     }
 }
