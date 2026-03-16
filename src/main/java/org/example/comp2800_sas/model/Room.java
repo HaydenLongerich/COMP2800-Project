@@ -7,17 +7,22 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "ROOM")
+@Table(
+        name = "ROOM",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = {"building", "room_number"})
+        }
+)
 public class Room {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "room_id")
     private Integer roomId;
 
-    @Column(name = "building", nullable = false)
+    @Column(name = "building", nullable = false, length = 200)
     private String building;
 
-    @Column(name = "room_number", nullable = false)
+    @Column(name = "room_number", nullable = false, length = 20)
     private String roomNumber;
 
     @Column(name = "num_seats", nullable = false)

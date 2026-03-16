@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Getter
 @Setter
 @Entity
@@ -19,8 +22,8 @@ public class Section {
     private Course course;
 
     @ManyToOne(optional = false)
-    @JoinColumn(name = "term_id", nullable = false)
-    private Semester term;
+    @JoinColumn(name = "semester_id", nullable = false)
+    private Semester semester;
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "instructor_id", nullable = false)
@@ -32,19 +35,21 @@ public class Section {
     @Column(name = "max_capacity", nullable = false)
     private Integer maxCapacity;
 
-    @Column(name = "num_enrolled", nullable = false)
-    private Integer numEnrolled;
+    @OneToMany(mappedBy = "section")
+    private List<Timeslot> timeslots = new ArrayList<>();
+
+    @OneToMany(mappedBy = "section")
+    private List<Enrollment> enrollments = new ArrayList<>();
 
     public Section() {
     }
 
-    public Section(Course course, Semester term, Instructor instructor,
-                   Integer sectionNumber, Integer maxCapacity, Integer numEnrolled) {
+    public Section(Course course, Semester semester, Instructor instructor,
+                   Integer sectionNumber, Integer maxCapacity) {
         this.course = course;
-        this.term = term;
+        this.semester = semester;
         this.instructor = instructor;
         this.sectionNumber = sectionNumber;
         this.maxCapacity = maxCapacity;
-        this.numEnrolled = numEnrolled;
     }
 }

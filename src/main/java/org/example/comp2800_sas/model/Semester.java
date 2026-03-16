@@ -11,8 +11,8 @@ import lombok.Setter;
 public class Semester {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "term_id")
-    private Integer termId;
+    @Column(name = "semester_id")
+    private Integer semesterId;
 
     @Column(name = "year", nullable = false)
     private Integer year;

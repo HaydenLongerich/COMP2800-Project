@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface InstructorRepository extends JpaRepository<Instructor, Integer> {
     List<Instructor> findByNameContainingIgnoreCase(String name);
+
+    Instructor getInstructorByInstructorId(Integer instructorId);
 }

@@ -25,8 +25,9 @@ public class Enrollment {
     @JoinColumn(name = "section_id", nullable = false)
     private Section section;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
-    private String status;
+    private EnrollmentStatus status;
 
     @Column(name = "grade", precision = 5, scale = 2)
     private BigDecimal grade;
@@ -34,7 +35,7 @@ public class Enrollment {
     public Enrollment() {
     }
 
-    public Enrollment(Student student, Section section, String status, BigDecimal grade) {
+    public Enrollment(Student student, Section section, EnrollmentStatus status, BigDecimal grade) {
         this.student = student;
         this.section = section;
         this.status = status;

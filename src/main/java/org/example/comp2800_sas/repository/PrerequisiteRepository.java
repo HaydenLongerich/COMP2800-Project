@@ -9,4 +9,5 @@ import java.util.List;
 public interface PrerequisiteRepository extends JpaRepository<Prerequisite, PrerequisiteId> {
     List<Prerequisite> findByIdCourseId(Integer courseId);
     List<Prerequisite> findByIdPrerequisiteId(Integer prerequisiteId);
+    List<Prerequisite> findByCourse_CourseId(Integer courseCourseId);
 }

@@ -9,7 +9,12 @@ import java.time.LocalTime;
 @Getter
 @Setter
 @Entity
-@Table(name = "TIMESLOT")
+@Table(
+        name = "TIMESLOT",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = {"section_id", "day", "start_time"})
+        }
+)
 public class Timeslot {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
