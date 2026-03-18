@@ -54,8 +54,7 @@ public class EnrollmentService {
         Student student = new Student();
         student.setStudentId(studentId);
 
-        Enrollment enrollment =
-                new Enrollment(student, section, null, EnrollmentStatus.ENROLLED);
+        Enrollment enrollment = new Enrollment(student, section, EnrollmentStatus.ENROLLED, null);
 
         return enrollmentRepository.save(enrollment);
     }
