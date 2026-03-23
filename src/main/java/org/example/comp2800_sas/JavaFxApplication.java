@@ -2,6 +2,9 @@ package org.example.comp2800_sas;
 
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.stage.Stage;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -11,22 +14,24 @@ public class JavaFxApplication extends Application {
 
     @Override
     public void init() {
-        // Initializes the Spring context
         this.context = new SpringApplicationBuilder(Comp2800SasApplication.class).run();
     }
 
     @Override
-    public void start(Stage primaryStage) {
-        javafx.scene.layout.StackPane root = new javafx.scene.layout.StackPane();
+    public void start(Stage primaryStage) throws Exception {
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/login.fxml"));
+        loader.setControllerFactory(context::getBean);
+        Parent root = loader.load();
 
-        primaryStage.setScene(new javafx.scene.Scene(root, 400, 300));
-        primaryStage.setTitle("COMP2800 Group Project");
+        Scene scene = new Scene(root, 560, 480);
+        primaryStage.setScene(scene);
+        primaryStage.setTitle("Student Advisory System");
+        primaryStage.setResizable(false);
         primaryStage.show();
     }
 
     @Override
     public void stop() {
-        // Closes Spring when the window is closed
         this.context.close();
         Platform.exit();
     }

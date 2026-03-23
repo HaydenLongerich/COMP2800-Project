@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.geometry.*?>
+
+<StackPane xmlns="http://javafx.com/javafx"
+           xmlns:fx="http://javafx.com/fxml"
+           fx:controller="org.example.comp2800_sas.controller.LoginController"
+           stylesheets="@login.css"
+           prefWidth="560" prefHeight="480">
+
+    <HBox>
+        <!-- LEFT PANEL -->
+        <VBox styleClass="left-panel" alignment="CENTER" spacing="12" prefWidth="220">
+            <padding><Insets top="40" bottom="40" left="30" right="30"/></padding>
+
+            <ImageView fitWidth="80" fitHeight="80" preserveRatio="true">
+                <image><Image url="@logo.png"/></image>
+            </ImageView>
+
+            <Label text="Student Advisory System" styleClass="brand-title"/>
+            <Label text="University of Windsor" styleClass="brand-sub"/>
+            <Label text="Computer Science Department" styleClass="brand-sub"/>
+        </VBox>
+
+        <!-- RIGHT PANEL -->
+        <VBox styleClass="right-panel" alignment="CENTER" spacing="16" HBox.hgrow="ALWAYS">
+            <padding><Insets top="50" bottom="50" left="40" right="40"/></padding>
+
+            <Label text="Welcome Back" styleClass="login-title"/>
+            <Label text="Sign in with your student ID" styleClass="login-sub"/>
+
+            <VBox spacing="6" maxWidth="Infinity">
+                <Label text="STUDENT ID" styleClass="field-label"/>
+                <TextField fx:id="studentIdField"
+
+                           styleClass="text-field"/>
+            </VBox>
+
+            <Button fx:id="loginButton"
+                    text="Sign In"
+                    styleClass="login-btn"
+                    onAction="#handleLogin"
+                    maxWidth="Infinity"/>
+
+            <Label fx:id="errorLabel" styleClass="error-label" text="" wrapText="true"/>
+        </VBox>
+    </HBox>
+</StackPane>

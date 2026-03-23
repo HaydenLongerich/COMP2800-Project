@@ -1,0 +1,104 @@
+.root {
+    -fx-font-family: "Segoe UI";
+}
+
+/* NAVBAR */
+.navbar {
+    -fx-background-color: #1a3a5c;
+}
+.nav-title {
+    -fx-text-fill: white;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+.nav-subtitle {
+    -fx-text-fill: #7aafd4;
+    -fx-font-size: 10px;
+}
+.nav-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: #a8c8e8;
+    -fx-font-size: 13px;
+    -fx-padding: 8 16;
+    -fx-background-radius: 20;
+    -fx-cursor: hand;
+    -fx-border-color: transparent;
+}
+.nav-btn:hover {
+    -fx-background-color: #254d73;
+    -fx-text-fill: white;
+}
+.nav-btn-active {
+    -fx-background-color: #f5c518;
+    -fx-text-fill: #1a3a5c;
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-padding: 8 16;
+    -fx-background-radius: 20;
+    -fx-cursor: hand;
+    -fx-border-color: transparent;
+}
+.nav-btn-active:hover {
+    -fx-background-color: #e6b800;
+    -fx-text-fill: #1a3a5c;
+}
+.nav-btn-logout {
+    -fx-background-color: transparent;
+    -fx-text-fill: #ff8080;
+    -fx-font-size: 13px;
+    -fx-padding: 8 16;
+    -fx-background-radius: 20;
+    -fx-cursor: hand;
+    -fx-border-color: transparent;
+}
+.nav-btn-logout:hover {
+    -fx-background-color: #3d1f1f;
+    -fx-text-fill: #ff6b6b;
+}
+.nav-username {
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+.nav-userrole {
+    -fx-text-fill: #7aafd4;
+    -fx-font-size: 10px;
+}
+
+/* BANNER */
+.banner {
+    -fx-background-color: #1a3a5c;
+}
+.banner-title {
+    -fx-text-fill: white;
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+}
+.banner-sub {
+    -fx-text-fill: #7aafd4;
+    -fx-font-size: 12px;
+}
+.stat-box {
+    -fx-background-color: #254d73;
+    -fx-background-radius: 8;
+    -fx-padding: 16 24;
+    -fx-min-width: 140;
+}
+.stat-num-yellow {
+    -fx-text-fill: #f5c518;
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+}
+.stat-label {
+    -fx-text-fill: #a8c8e8;
+    -fx-font-size: 11px;
+}
+
+/* CONTENT */
+.content-area {
+    -fx-background-color: #f0f2f5;
+}
+.placeholder-text {
+    -fx-text-fill: #8892a4;
+    -fx-font-size: 14px;
+}

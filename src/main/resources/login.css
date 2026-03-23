@@ -1,0 +1,69 @@
+.root {
+    -fx-font-family: "Segoe UI";
+}
+
+/* LEFT PANEL */
+.left-panel {
+    -fx-background-color: #1a3a5c;
+}
+.brand-title {
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-alignment: center;
+    -fx-wrap-text: true;
+}
+.brand-sub {
+    -fx-text-fill: #7aafd4;
+    -fx-font-size: 11px;
+    -fx-text-alignment: center;
+    -fx-wrap-text: true;
+}
+
+/* RIGHT PANEL */
+.right-panel {
+    -fx-background-color: #f0f2f5;
+}
+.login-title {
+    -fx-text-fill: #1a3a5c;
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+}
+.login-sub {
+    -fx-text-fill: #7a8a9a;
+    -fx-font-size: 12px;
+}
+.field-label {
+    -fx-text-fill: #1a3a5c;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+.text-field {
+    -fx-background-color: white;
+    -fx-text-fill: #1a3a5c;
+    -fx-prompt-text-fill: #b0bec5;
+    -fx-background-radius: 6;
+    -fx-border-color: #cfd8dc;
+    -fx-border-radius: 6;
+    -fx-padding: 10 14;
+    -fx-font-size: 14px;
+}
+.text-field:focused {
+    -fx-border-color: #1a3a5c;
+}
+.login-btn {
+    -fx-background-color: #f5c518;
+    -fx-text-fill: #1a3a5c;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-background-radius: 6;
+    -fx-padding: 11 0;
+    -fx-cursor: hand;
+}
+.login-btn:hover {
+    -fx-background-color: #e6b800;
+}
+.error-label {
+    -fx-text-fill: #c0392b;
+    -fx-font-size: 12px;
+}
