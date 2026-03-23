@@ -27,7 +27,7 @@
 
         <Button fx:id="btnHome"     text="Home"     styleClass="nav-btn, nav-btn-active" onAction="#showHome"/>
         <Button fx:id="btnCourses"  text="Courses"  styleClass="nav-btn" onAction="#showCourses"/>
-        <Button fx:id="btnSchedule" text="Enroll" styleClass="nav-btn" onAction="#showSchedule"/>
+        <Button fx:id="btnSchedule" text="Enrollment" styleClass="nav-btn" onAction="#showSchedule"/>
         <Button fx:id="btnAdvisors" text="Advisors" styleClass="nav-btn" onAction="#showAdvisors"/>
         <Button fx:id="btnReports"  text="Reports"  styleClass="nav-btn" onAction="#showReports"/>
         <Button                     text="Log Out"  styleClass="nav-btn-logout" onAction="#handleLogout"/>

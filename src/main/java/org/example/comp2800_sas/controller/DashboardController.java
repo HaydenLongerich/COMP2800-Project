@@ -20,11 +20,13 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import org.example.comp2800_sas.model.Course;
+import org.example.comp2800_sas.model.EnrollmentCatalogData;
 import org.example.comp2800_sas.model.Section;
 import org.example.comp2800_sas.model.Student;
 import org.example.comp2800_sas.model.Timeslot;
 import org.example.comp2800_sas.repository.TimeslotRepository;
 import org.example.comp2800_sas.service.CourseService;
+import org.example.comp2800_sas.service.EnrollmentCatalogService;
 import org.example.comp2800_sas.service.EnrollmentService;
 import org.example.comp2800_sas.service.SectionService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +43,7 @@ import java.util.Map;
 public class DashboardController {
 
     @Autowired private CourseService courseService;
+    @Autowired private EnrollmentCatalogService enrollmentCatalogService;
     @Autowired private SectionService sectionService;
     @Autowired private EnrollmentService enrollmentService;
     @Autowired private TimeslotRepository timeslotRepository;
@@ -301,37 +304,30 @@ public class DashboardController {
         spinner.setMaxSize(50, 50);
         contentArea.getChildren().add(spinner);
 
-        Task<Map<Course, List<SectionData>>> task = new Task<>() {
+        Task<EnrollmentCatalogData> task = new Task<>() {
             @Override
-            protected Map<Course, List<SectionData>> call() {
-                List<Section> sections = sectionService.getSectionsForSemester(1);
-                Map<Course, List<SectionData>> grouped = new LinkedHashMap<>();
-                for (Section s : sections) {
-                    List<Timeslot> timeslots = timeslotRepository.findBySection_SectionId(s.getSectionId());
-                    int seats = enrollmentService.getSeatsLeftInSection(s.getSectionId());
-                    boolean enrolled = enrollmentService.studentInSection(
-                            currentStudent.getStudentId(), s.getSectionId()
-                    );
-                    grouped.computeIfAbsent(s.getCourse(), k -> new ArrayList<>())
-                            .add(new SectionData(s, timeslots, seats, enrolled));
-                }
-                return grouped;
+            protected EnrollmentCatalogData call() {
+                return enrollmentCatalogService.loadCatalog();
             }
         };
 
         task.setOnSucceeded(e -> {
             contentArea.getChildren().clear();
-            buildEnrollScreen(task.getValue());
+            VBox enrollmentView = new EnrollmentViewBuilder(enrollmentCatalogService).build(task.getValue());
+            StackPane.setAlignment(enrollmentView, Pos.TOP_LEFT);
+            contentArea.getChildren().add(enrollmentView);
         });
 
         task.setOnFailed(e -> {
             contentArea.getChildren().clear();
-            Label error = new Label("Failed to load sections.");
-            error.setStyle("-fx-text-fill: red;");
+            Label error = new Label("Failed to load the Enrollment catalog.");
+            error.setStyle("-fx-text-fill: #b33a3a; -fx-font-size: 14px; -fx-font-weight: bold;");
             contentArea.getChildren().add(error);
         });
 
-        new Thread(task).start();
+        Thread loader = new Thread(task);
+        loader.setDaemon(true);
+        loader.start();
     }
 
     private void buildEnrollScreen(Map<Course, List<SectionData>> grouped) {
