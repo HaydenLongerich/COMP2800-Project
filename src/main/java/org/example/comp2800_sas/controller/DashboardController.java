@@ -28,6 +28,7 @@ import org.example.comp2800_sas.repository.TimeslotRepository;
 import org.example.comp2800_sas.service.CourseService;
 import org.example.comp2800_sas.service.EnrollmentCatalogService;
 import org.example.comp2800_sas.service.EnrollmentService;
+import org.example.comp2800_sas.service.SemesterPlannerService;
 import org.example.comp2800_sas.service.SectionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -38,12 +39,14 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 @Component
 public class DashboardController {
 
     @Autowired private CourseService courseService;
     @Autowired private EnrollmentCatalogService enrollmentCatalogService;
+    @Autowired private SemesterPlannerService plannerService;
     @Autowired private SectionService sectionService;
     @Autowired private EnrollmentService enrollmentService;
     @Autowired private TimeslotRepository timeslotRepository;
@@ -57,20 +60,23 @@ public class DashboardController {
     @FXML private Button btnHome;
     @FXML private Button btnCourses;
     @FXML private Button btnSchedule;
+    @FXML private Button btnPlanner;
     @FXML private Button btnAdvisors;
     @FXML private Button btnReports;
 
     private Student currentStudent;
+    private EnrollmentCatalogData cachedCatalog;
 
     public void setStudent(Student student) {
         this.currentStudent = student;
         studentNameLabel.setText(student.getName());
         welcomeLabel.setText("Welcome back, " + student.getName().split(" ")[0] + "!");
-        enrolledLabel.setText("0");
+        plannerService.clearAllPlans();
+        refreshPlannerBadge();
     }
 
     private void setActiveButton(Button active) {
-        for (Button btn : new Button[]{btnHome, btnCourses, btnSchedule, btnAdvisors, btnReports}) {
+        for (Button btn : new Button[]{btnHome, btnCourses, btnSchedule, btnPlanner, btnAdvisors, btnReports}) {
             btn.getStyleClass().removeAll("nav-btn-active");
             if (!btn.getStyleClass().contains("nav-btn")) {
                 btn.getStyleClass().add("nav-btn");
@@ -253,6 +259,7 @@ public class DashboardController {
 
         wrapper.getChildren().addAll(header, scroll);
         VBox.setVgrow(wrapper, Priority.ALWAYS);
+        StackPane.setAlignment(wrapper, Pos.TOP_CENTER);
         contentArea.getChildren().add(wrapper);
     }
 
@@ -298,6 +305,34 @@ public class DashboardController {
     @FXML
     public void showSchedule() {
         setActiveButton(btnSchedule);
+        loadCatalogView(catalog -> {
+            VBox enrollmentView = new EnrollmentViewBuilder(
+                    enrollmentCatalogService,
+                    plannerService,
+                    this::showPlanner,
+                    this::refreshPlannerBadge
+            ).build(catalog);
+            StackPane.setAlignment(enrollmentView, Pos.TOP_CENTER);
+            contentArea.getChildren().add(enrollmentView);
+        }, "Failed to load the Enrollment catalog.");
+    }
+
+    @FXML
+    public void showPlanner() {
+        setActiveButton(btnPlanner);
+        loadCatalogView(catalog -> {
+            VBox plannerView = new PlannerViewBuilder(
+                    enrollmentCatalogService,
+                    plannerService,
+                    this::showSchedule,
+                    this::refreshPlannerBadge
+            ).build(catalog);
+            StackPane.setAlignment(plannerView, Pos.TOP_CENTER);
+            contentArea.getChildren().add(plannerView);
+        }, "Failed to load planner data.");
+    }
+
+    private void loadCatalogView(Consumer<EnrollmentCatalogData> onSuccess, String failureText) {
         contentArea.getChildren().clear();
 
         ProgressIndicator spinner = new ProgressIndicator();
@@ -307,20 +342,19 @@ public class DashboardController {
         Task<EnrollmentCatalogData> task = new Task<>() {
             @Override
             protected EnrollmentCatalogData call() {
-                return enrollmentCatalogService.loadCatalog();
+                return cachedCatalog != null ? cachedCatalog : enrollmentCatalogService.loadCatalog();
             }
         };
 
         task.setOnSucceeded(e -> {
             contentArea.getChildren().clear();
-            VBox enrollmentView = new EnrollmentViewBuilder(enrollmentCatalogService).build(task.getValue());
-            StackPane.setAlignment(enrollmentView, Pos.TOP_LEFT);
-            contentArea.getChildren().add(enrollmentView);
+            cachedCatalog = task.getValue();
+            onSuccess.accept(cachedCatalog);
         });
 
         task.setOnFailed(e -> {
             contentArea.getChildren().clear();
-            Label error = new Label("Failed to load the Enrollment catalog.");
+            Label error = new Label(failureText);
             error.setStyle("-fx-text-fill: #b33a3a; -fx-font-size: 14px; -fx-font-weight: bold;");
             contentArea.getChildren().add(error);
         });
@@ -328,6 +362,10 @@ public class DashboardController {
         Thread loader = new Thread(task);
         loader.setDaemon(true);
         loader.start();
+    }
+
+    private void refreshPlannerBadge() {
+        enrolledLabel.setText(String.valueOf(plannerService.getTotalPlannedCount()));
     }
 
     private void buildEnrollScreen(Map<Course, List<SectionData>> grouped) {

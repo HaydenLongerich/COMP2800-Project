@@ -98,6 +98,14 @@
 .content-area {
     -fx-background-color: #f0f2f5;
 }
+.content-scroll {
+    -fx-background-color: #f0f2f5;
+    -fx-background: #f0f2f5;
+    -fx-border-color: transparent;
+}
+.content-scroll > .viewport {
+    -fx-background-color: #f0f2f5;
+}
 .placeholder-text {
     -fx-text-fill: #8892a4;
     -fx-font-size: 14px;

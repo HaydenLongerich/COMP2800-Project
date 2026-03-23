@@ -52,7 +52,7 @@ public class LoginController {
                 dashboardController.setStudent(student.get());
 
                 Stage stage = (Stage) loginButton.getScene().getWindow();
-                stage.setScene(new Scene(root, 1100, 700));
+                stage.setScene(new Scene(root, 1320, 820));
                 stage.setResizable(true);
             } else {
                 errorLabel.setText("No student found with ID " + id + ".");

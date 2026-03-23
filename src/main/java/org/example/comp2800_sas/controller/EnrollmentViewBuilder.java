@@ -21,7 +21,9 @@ import org.example.comp2800_sas.model.EnrollmentCatalogData;
 import org.example.comp2800_sas.model.EnrollmentCatalogOption;
 import org.example.comp2800_sas.model.EnrollmentCatalogSection;
 import org.example.comp2800_sas.model.EnrollmentCatalogSummary;
+import org.example.comp2800_sas.model.PlannerSelectionResult;
 import org.example.comp2800_sas.service.EnrollmentCatalogService;
+import org.example.comp2800_sas.service.SemesterPlannerService;
 
 import java.awt.Desktop;
 import java.net.URI;
@@ -38,6 +40,10 @@ public class EnrollmentViewBuilder {
     private static final String ALL_STATUSES = "All Statuses";
     private static final String ALL_SESSIONS = "All Sessions";
     private static final String ALL_COMPONENTS = "All Components";
+    private static final String ALL_DELIVERY = "All Delivery";
+    private static final String SORT_CODE_ASC = "Course Code (A-Z)";
+    private static final String SORT_CODE_DESC = "Course Code (Z-A)";
+    private static final String SORT_TITLE_ASC = "Course Title (A-Z)";
     private static final String SURFACE_CARD_STYLE =
             "-fx-background-color: white; -fx-background-radius: 18; -fx-border-radius: 18; " +
                     "-fx-border-color: #d9e3ef; -fx-effect: dropshadow(gaussian, rgba(19,49,77,0.08), 18, 0.18, 0, 6);";
@@ -48,40 +54,42 @@ public class EnrollmentViewBuilder {
                     "-fx-border-color: #cad7e5; -fx-padding: 10 12; -fx-font-size: 12px;";
 
     private final EnrollmentCatalogService catalogService;
+    private final SemesterPlannerService plannerService;
+    private final Runnable openPlannerPage;
+    private final Runnable onPlannerUpdated;
 
-    public EnrollmentViewBuilder(EnrollmentCatalogService catalogService) {
+    public EnrollmentViewBuilder(
+            EnrollmentCatalogService catalogService,
+            SemesterPlannerService plannerService,
+            Runnable openPlannerPage,
+            Runnable onPlannerUpdated
+    ) {
         this.catalogService = catalogService;
+        this.plannerService = plannerService;
+        this.openPlannerPage = openPlannerPage;
+        this.onPlannerUpdated = onPlannerUpdated;
     }
 
     public VBox build(EnrollmentCatalogData catalog) {
         VBox wrapper = new VBox(18);
         wrapper.setPadding(new Insets(24));
-        wrapper.setMaxWidth(1040);
+        wrapper.setMaxWidth(1220);
 
-        wrapper.getChildren().add(createHero());
+        Label plannedCountValue = new Label();
+        Label plannedSessionValue = new Label();
+        Label conflictValue = new Label();
+
+        wrapper.getChildren().add(createHero(plannedCountValue, plannedSessionValue, conflictValue));
         wrapper.getChildren().add(createSummaryBar(catalog.summary()));
 
-        VBox filtersCard = new VBox(14);
-        filtersCard.setPadding(new Insets(18, 20, 18, 20));
-        filtersCard.setStyle(SURFACE_CARD_STYLE);
-
-        Label filtersTitle = new Label("Find Courses");
-        filtersTitle.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #173b63;");
-
-        Label filtersHint = new Label(
-                "Search the uploaded catalog by course code, title, status, session, or component mix. " +
-                        "Results stay on this page and sort by course code (A-Z)."
-        );
-        filtersHint.setWrapText(true);
-        filtersHint.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px;");
+        VBox controlsCard = new VBox(12);
+        controlsCard.setPadding(new Insets(16, 18, 16, 18));
+        controlsCard.setStyle(SURFACE_CARD_STYLE);
 
         TextField codeSearch = createFilterField("e.g. COMP 1400");
         TextField titleSearch = createFilterField("e.g. Algorithms");
 
-        ComboBox<String> statusFilter = createFilterCombo(
-                List.of(ALL_STATUSES, "Open", "Closed"),
-                ALL_STATUSES
-        );
+        ComboBox<String> statusFilter = createFilterCombo(List.of(ALL_STATUSES, "Open", "Closed"), ALL_STATUSES);
 
         List<String> sessions = new ArrayList<>();
         sessions.add(ALL_SESSIONS);
@@ -93,6 +101,12 @@ public class EnrollmentViewBuilder {
         components.addAll(catalog.componentFilters());
         ComboBox<String> componentFilter = createFilterCombo(components, ALL_COMPONENTS);
 
+        ComboBox<String> deliveryFilter = createFilterCombo(buildDeliveryFilters(catalog), ALL_DELIVERY);
+        ComboBox<String> sortFilter = createFilterCombo(
+                List.of(SORT_CODE_ASC, SORT_CODE_DESC, SORT_TITLE_ASC),
+                SORT_CODE_ASC
+        );
+
         Button clearFilters = createActionButton("Clear Filters",
                 "-fx-background-color: #eef4fb; -fx-text-fill: #173b63;");
         clearFilters.setOnAction(e -> {
@@ -101,7 +115,46 @@ public class EnrollmentViewBuilder {
             statusFilter.setValue(ALL_STATUSES);
             sessionFilter.setValue(ALL_SESSIONS);
             componentFilter.setValue(ALL_COMPONENTS);
+            deliveryFilter.setValue(ALL_DELIVERY);
+            sortFilter.setValue(SORT_CODE_ASC);
         });
+
+        Button filterToggle = createActionButton(
+                "Filters",
+                "-fx-background-color: #173b63; -fx-text-fill: white;"
+        );
+
+        Button openPlannerButton = createActionButton(
+                "Open Planner",
+                "-fx-background-color: #f5c518; -fx-text-fill: #173b63;"
+        );
+        openPlannerButton.setOnAction(e -> openPlannerPage.run());
+
+        Label toolbarTitle = new Label("Course Results");
+        toolbarTitle.setStyle("-fx-text-fill: #173b63; -fx-font-size: 16px; -fx-font-weight: bold;");
+
+        Label toolbarHint = new Label("Browse the uploaded catalog and add the right option into your draft schedule.");
+        toolbarHint.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px;");
+
+        Label resultsSummary = new Label();
+        resultsSummary.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px; -fx-font-weight: bold;");
+
+        VBox toolbarText = new VBox(4, toolbarTitle, toolbarHint, resultsSummary);
+
+        HBox toolbar = new HBox(12);
+        toolbar.setAlignment(Pos.CENTER_LEFT);
+        Region toolbarSpacer = new Region();
+        HBox.setHgrow(toolbarSpacer, Priority.ALWAYS);
+        toolbar.getChildren().addAll(toolbarText, toolbarSpacer, clearFilters, filterToggle, openPlannerButton);
+
+        VBox filterPanel = new VBox(12);
+        filterPanel.setPadding(new Insets(14, 14, 14, 14));
+        filterPanel.setVisible(false);
+        filterPanel.setManaged(false);
+        filterPanel.setStyle(
+                "-fx-background-color: #f7fafe; -fx-background-radius: 14; -fx-border-radius: 14; " +
+                        "-fx-border-color: #d9e3ef;"
+        );
 
         FlowPane filterGrid = new FlowPane(12, 12);
         filterGrid.getChildren().addAll(
@@ -109,36 +162,78 @@ public class EnrollmentViewBuilder {
                 createLabeledControl("Course Title", titleSearch),
                 createLabeledControl("Status", statusFilter),
                 createLabeledControl("Session", sessionFilter),
-                createLabeledControl("Components", componentFilter)
+                createLabeledControl("Components", componentFilter),
+                createLabeledControl("Delivery", deliveryFilter),
+                createLabeledControl("Sort", sortFilter)
         );
 
-        HBox filterFooter = new HBox(12);
-        filterFooter.setAlignment(Pos.CENTER_LEFT);
+        Label filterHint = new Label("Filters stay tucked away until you need them. Use chips below to confirm what is active.");
+        filterHint.setWrapText(true);
+        filterHint.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px;");
+        filterPanel.getChildren().addAll(filterGrid, filterHint);
 
-        Label resultsSummary = new Label();
-        resultsSummary.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px; -fx-font-weight: bold;");
-
-        Region footerSpacer = new Region();
-        HBox.setHgrow(footerSpacer, Priority.ALWAYS);
-        filterFooter.getChildren().addAll(resultsSummary, footerSpacer, clearFilters);
-
-        filtersCard.getChildren().addAll(filtersTitle, filtersHint, filterGrid, filterFooter);
+        FlowPane activeFilters = new FlowPane(8, 8);
+        activeFilters.setVisible(false);
+        activeFilters.setManaged(false);
 
         VBox courseList = new VBox(14);
 
-        Runnable renderList = () -> {
+        Runnable[] renderRef = new Runnable[1];
+        renderRef[0] = () -> {
             List<EnrollmentCatalogCourse> filteredCourses = catalog.courses().stream()
                     .filter(course -> matchesCodeFilter(course, codeSearch.getText()))
                     .filter(course -> matchesTitleFilter(course, titleSearch.getText()))
                     .filter(course -> matchesStatusFilter(course, statusFilter.getValue()))
                     .filter(course -> matchesSessionFilter(course, sessionFilter.getValue()))
                     .filter(course -> matchesComponentFilter(course, componentFilter.getValue()))
-                    .sorted(Comparator.comparing(course -> normalize(course.courseCode())))
+                    .filter(course -> matchesDeliveryFilter(course, deliveryFilter.getValue()))
+                    .sorted(sortComparator(sortFilter.getValue()))
                     .toList();
 
             resultsSummary.setText(
-                    "Showing " + filteredCourses.size() + " of " + catalog.summary().totalCourses() + " courses."
+                    "Showing " + filteredCourses.size() + " of " + catalog.summary().totalCourses()
+                            + " courses. Sort: " + sortFilter.getValue()
             );
+
+            updatePlannerSnapshot(plannedCountValue, plannedSessionValue, conflictValue);
+
+            int activeCount = countActiveFilters(
+                    codeSearch.getText(),
+                    titleSearch.getText(),
+                    statusFilter.getValue(),
+                    sessionFilter.getValue(),
+                    componentFilter.getValue(),
+                    deliveryFilter.getValue(),
+                    sortFilter.getValue()
+            );
+            filterToggle.setText(activeCount > 0 ? "Filters (" + activeCount + ")" : "Filters");
+
+            List<Node> chips = new ArrayList<>();
+            if (hasText(codeSearch.getText())) {
+                chips.add(createBadge("Code: " + codeSearch.getText().trim(), "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"));
+            }
+            if (hasText(titleSearch.getText())) {
+                chips.add(createBadge("Title: " + titleSearch.getText().trim(), "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"));
+            }
+            if (!ALL_STATUSES.equals(statusFilter.getValue())) {
+                chips.add(createBadge(statusFilter.getValue(), "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"));
+            }
+            if (!ALL_SESSIONS.equals(sessionFilter.getValue())) {
+                chips.add(createBadge(sessionFilter.getValue(), "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"));
+            }
+            if (!ALL_COMPONENTS.equals(componentFilter.getValue())) {
+                chips.add(createBadge(componentFilter.getValue(), "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"));
+            }
+            if (!ALL_DELIVERY.equals(deliveryFilter.getValue())) {
+                chips.add(createBadge(deliveryFilter.getValue(), "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"));
+            }
+            if (!SORT_CODE_ASC.equals(sortFilter.getValue())) {
+                chips.add(createBadge(sortFilter.getValue(), "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"));
+            }
+
+            activeFilters.getChildren().setAll(chips);
+            activeFilters.setVisible(!chips.isEmpty());
+            activeFilters.setManaged(!chips.isEmpty());
 
             courseList.getChildren().clear();
 
@@ -148,17 +243,25 @@ public class EnrollmentViewBuilder {
             }
 
             for (EnrollmentCatalogCourse course : filteredCourses) {
-                courseList.getChildren().add(createCourseCard(course));
+                courseList.getChildren().add(createCourseCard(course, renderRef[0]));
             }
         };
 
-        codeSearch.textProperty().addListener((obs, oldVal, newVal) -> renderList.run());
-        titleSearch.textProperty().addListener((obs, oldVal, newVal) -> renderList.run());
-        statusFilter.valueProperty().addListener((obs, oldVal, newVal) -> renderList.run());
-        sessionFilter.valueProperty().addListener((obs, oldVal, newVal) -> renderList.run());
-        componentFilter.valueProperty().addListener((obs, oldVal, newVal) -> renderList.run());
+        filterToggle.setOnAction(e -> {
+            boolean open = filterPanel.isVisible();
+            filterPanel.setVisible(!open);
+            filterPanel.setManaged(!open);
+        });
 
-        renderList.run();
+        codeSearch.textProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
+        titleSearch.textProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
+        statusFilter.valueProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
+        sessionFilter.valueProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
+        componentFilter.valueProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
+        deliveryFilter.valueProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
+        sortFilter.valueProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
+
+        renderRef[0].run();
 
         ScrollPane scroll = new ScrollPane(courseList);
         scroll.setFitToWidth(true);
@@ -166,16 +269,17 @@ public class EnrollmentViewBuilder {
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
         VBox.setVgrow(scroll, Priority.ALWAYS);
 
-        wrapper.getChildren().addAll(filtersCard, scroll);
+        controlsCard.getChildren().addAll(toolbar, filterPanel, activeFilters);
+        wrapper.getChildren().addAll(controlsCard, scroll);
         return wrapper;
     }
 
-    private VBox createHero() {
-        VBox hero = new VBox(10);
-        hero.setPadding(new Insets(22, 24, 22, 24));
-        hero.setStyle(SURFACE_CARD_STYLE + "-fx-background-color: linear-gradient(to right, #ffffff, #f6f9fd);");
+    private HBox createHero(Label plannedCountValue, Label plannedSessionValue, Label conflictValue) {
+        VBox introCard = new VBox(10);
+        introCard.setPadding(new Insets(22, 24, 22, 24));
+        introCard.setStyle(SURFACE_CARD_STYLE + "-fx-background-color: linear-gradient(to right, #ffffff, #f6f9fd);");
 
-        Label phaseChip = createBadge("Phase 1: Planning Foundation",
+        Label phaseChip = createBadge("Enrollment + Planner",
                 "-fx-background-color: #eef4ff; -fx-text-fill: #1c4a86;");
 
         Label title = new Label("Enrollment");
@@ -186,13 +290,48 @@ public class EnrollmentViewBuilder {
         subtitle.setStyle("-fx-text-fill: #42586e; -fx-font-size: 13px;");
 
         Label note = new Label(
-                "This first release focuses on browsing and filtering the uploaded catalog. " +
-                        "Calendar actions are intentionally staged for the next phase."
+                "Add an option into the planner when it looks right, then use the dedicated Planner page to review weekly timing and conflicts."
         );
         note.setWrapText(true);
         note.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px;");
 
-        hero.getChildren().addAll(phaseChip, title, subtitle, note);
+        introCard.getChildren().addAll(phaseChip, title, subtitle, note);
+        HBox.setHgrow(introCard, Priority.ALWAYS);
+
+        VBox plannerCard = new VBox(10);
+        plannerCard.setPadding(new Insets(20, 20, 20, 20));
+        plannerCard.setPrefWidth(290);
+        plannerCard.setStyle(
+                "-fx-background-color: linear-gradient(to bottom, #173b63, #244d73); " +
+                        "-fx-background-radius: 18; -fx-border-radius: 18;"
+        );
+
+        Label plannerTitle = new Label("Draft Planner");
+        plannerTitle.setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;");
+
+        plannedCountValue.setStyle("-fx-text-fill: #f5c518; -fx-font-size: 24px; -fx-font-weight: bold;");
+        plannedSessionValue.setStyle("-fx-text-fill: #f5c518; -fx-font-size: 24px; -fx-font-weight: bold;");
+        conflictValue.setStyle("-fx-text-fill: #f5c518; -fx-font-size: 24px; -fx-font-weight: bold;");
+
+        HBox metrics = new HBox(18,
+                miniMetric(plannedCountValue, "Planned"),
+                miniMetric(plannedSessionValue, "Sessions"),
+                miniMetric(conflictValue, "Conflicts")
+        );
+
+        Label plannerNote = new Label("Use Open Planner whenever you want the full weekly schedule view.");
+        plannerNote.setWrapText(true);
+        plannerNote.setStyle("-fx-text-fill: #b6cee6; -fx-font-size: 12px;");
+
+        Button plannerButton = createActionButton(
+                "Open Planner",
+                "-fx-background-color: #f5c518; -fx-text-fill: #173b63;"
+        );
+        plannerButton.setOnAction(e -> openPlannerPage.run());
+
+        plannerCard.getChildren().addAll(plannerTitle, metrics, plannerNote, plannerButton);
+
+        HBox hero = new HBox(18, introCard, plannerCard);
         return hero;
     }
 
@@ -284,10 +423,10 @@ public class EnrollmentViewBuilder {
         return state;
     }
 
-    private VBox createCourseCard(EnrollmentCatalogCourse course) {
+    private VBox createCourseCard(EnrollmentCatalogCourse course, Runnable refreshView) {
         VBox card = new VBox(16);
         card.setPadding(new Insets(18, 20, 18, 20));
-        card.setStyle(SURFACE_CARD_STYLE);
+        card.setStyle(SURFACE_CARD_STYLE + "-fx-background-color: linear-gradient(to bottom, #ffffff, #fbfdff);");
 
         VBox primaryInfo = new VBox(8);
         primaryInfo.setFillWidth(true);
@@ -340,14 +479,6 @@ public class EnrollmentViewBuilder {
         detailsButton.setDisable(!hasText(course.detailUrl()));
         detailsButton.setOnAction(e -> openExternalLink(course.detailUrl()));
 
-        Button planButton = createActionButton(
-                "Add to Plan",
-                "-fx-background-color: #dbe6f3; -fx-text-fill: #5d7087;"
-        );
-        planButton.setDisable(true);
-        planButton.setOpacity(1);
-        planButton.setTooltip(new Tooltip("TODO: connect this action to the planner calendar in phase 2."));
-
         Button toggleButton = createActionButton(
                 "Show Offerings",
                 "-fx-background-color: #173b63; -fx-text-fill: white;"
@@ -355,7 +486,7 @@ public class EnrollmentViewBuilder {
 
         VBox actions = new VBox(8);
         actions.setAlignment(Pos.TOP_RIGHT);
-        actions.getChildren().addAll(toggleButton, detailsButton, planButton);
+        actions.getChildren().addAll(toggleButton, detailsButton);
 
         HBox header = new HBox(16);
         header.setAlignment(Pos.TOP_LEFT);
@@ -380,7 +511,10 @@ public class EnrollmentViewBuilder {
 
         Label offeringsTitle = new Label("Offerings");
         offeringsTitle.setStyle("-fx-text-fill: #173b63; -fx-font-size: 14px; -fx-font-weight: bold;");
-        offeringsBox.getChildren().add(offeringsTitle);
+        Label offeringsHint = new Label("Add an option to the planner to schedule all of its linked sections together.");
+        offeringsHint.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px;");
+        offeringsHint.setWrapText(true);
+        offeringsBox.getChildren().addAll(offeringsTitle, offeringsHint);
 
         if (course.options().isEmpty()) {
             Label noOptions = new Label("No offering data is available for this course yet.");
@@ -388,7 +522,7 @@ public class EnrollmentViewBuilder {
             offeringsBox.getChildren().add(noOptions);
         } else {
             for (EnrollmentCatalogOption option : course.options()) {
-                offeringsBox.getChildren().add(createOptionCard(option));
+                offeringsBox.getChildren().add(createOptionCard(course, option, refreshView));
             }
         }
 
@@ -403,7 +537,11 @@ public class EnrollmentViewBuilder {
         return card;
     }
 
-    private VBox createOptionCard(EnrollmentCatalogOption option) {
+    private VBox createOptionCard(
+            EnrollmentCatalogCourse course,
+            EnrollmentCatalogOption option,
+            Runnable refreshView
+    ) {
         VBox card = new VBox(12);
         card.setPadding(new Insets(16, 16, 16, 16));
         card.setStyle(
@@ -436,7 +574,38 @@ public class EnrollmentViewBuilder {
                 "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"
         ));
 
-        header.getChildren().addAll(title, spacer, optionBadges);
+        boolean optionPlanned = plannerService.isOptionPlanned(
+                fallback(option.session(), "Unscheduled"),
+                fallback(course.courseCode(), "TBA"),
+                fallback(option.optionNumber(), "N/A")
+        );
+        boolean courseAlreadyPlanned = plannerService.hasCoursePlannedInSession(
+                fallback(option.session(), "Unscheduled"),
+                fallback(course.courseCode(), "TBA")
+        );
+
+        Button optionPlanButton = createActionButton(
+                optionPlanned ? "Planned" : courseAlreadyPlanned ? "Replace Plan" : "Add to Plan",
+                optionPlanned
+                        ? "-fx-background-color: #dbe6f3; -fx-text-fill: #5d7087;"
+                        : "-fx-background-color: #173b63; -fx-text-fill: white;"
+        );
+        optionPlanButton.setDisable(optionPlanned || option.sections().isEmpty());
+        optionPlanButton.setOpacity(1);
+        optionPlanButton.setTooltip(new Tooltip(
+                "Adds the full option into the semester planner, including all linked sections."
+        ));
+        optionPlanButton.setOnAction(e -> {
+            PlannerSelectionResult result = plannerService.addOption(course, option);
+            onPlannerUpdated.run();
+            refreshView.run();
+        });
+
+        VBox rightActions = new VBox(8);
+        rightActions.setAlignment(Pos.CENTER_RIGHT);
+        rightActions.getChildren().addAll(optionBadges, optionPlanButton);
+
+        header.getChildren().addAll(title, spacer, rightActions);
 
         VBox sections = new VBox(10);
         if (option.sections().isEmpty()) {
@@ -537,6 +706,70 @@ public class EnrollmentViewBuilder {
         return block;
     }
 
+    private VBox miniMetric(Label valueLabel, String labelText) {
+        VBox metric = new VBox(2);
+        valueLabel.setStyle("-fx-text-fill: #f5c518; -fx-font-size: 24px; -fx-font-weight: bold;");
+
+        Label label = new Label(labelText);
+        label.setStyle("-fx-text-fill: #b6cee6; -fx-font-size: 11px; -fx-font-weight: bold;");
+
+        metric.getChildren().addAll(valueLabel, label);
+        return metric;
+    }
+
+    private void updatePlannerSnapshot(Label plannedCountValue, Label plannedSessionValue, Label conflictValue) {
+        plannedCountValue.setText(String.valueOf(plannerService.getTotalPlannedCount()));
+        plannedSessionValue.setText(String.valueOf(plannerService.getPlannedSessions().size()));
+        conflictValue.setText(String.valueOf(plannerService.getTotalConflictCount()));
+    }
+
+    private List<String> buildDeliveryFilters(EnrollmentCatalogData catalog) {
+        List<String> filters = new ArrayList<>();
+        filters.add(ALL_DELIVERY);
+        for (EnrollmentCatalogCourse course : catalog.courses()) {
+            for (String modality : collectCourseModalities(course)) {
+                if (!filters.contains(modality)) {
+                    filters.add(modality);
+                }
+            }
+        }
+        return filters;
+    }
+
+    private int countActiveFilters(
+            String codeQuery,
+            String titleQuery,
+            String statusFilter,
+            String sessionFilter,
+            String componentFilter,
+            String deliveryFilter,
+            String sortFilter
+    ) {
+        int count = 0;
+        if (hasText(codeQuery)) {
+            count++;
+        }
+        if (hasText(titleQuery)) {
+            count++;
+        }
+        if (!ALL_STATUSES.equals(statusFilter)) {
+            count++;
+        }
+        if (!ALL_SESSIONS.equals(sessionFilter)) {
+            count++;
+        }
+        if (!ALL_COMPONENTS.equals(componentFilter)) {
+            count++;
+        }
+        if (!ALL_DELIVERY.equals(deliveryFilter)) {
+            count++;
+        }
+        if (!SORT_CODE_ASC.equals(sortFilter)) {
+            count++;
+        }
+        return count;
+    }
+
     private boolean matchesCodeFilter(EnrollmentCatalogCourse course, String query) {
         return matchesText(query, course.courseCode());
     }
@@ -573,12 +806,30 @@ public class EnrollmentViewBuilder {
         return filter.equalsIgnoreCase(catalogService.formatComponents(course.components()));
     }
 
+    private boolean matchesDeliveryFilter(EnrollmentCatalogCourse course, String filter) {
+        if (!hasText(filter) || ALL_DELIVERY.equals(filter)) {
+            return true;
+        }
+
+        return collectCourseModalities(course).stream().anyMatch(filter::equalsIgnoreCase);
+    }
+
     private boolean matchesText(String query, String value) {
         String normalizedQuery = normalize(query);
         if (normalizedQuery.isBlank()) {
             return true;
         }
         return normalize(value).contains(normalizedQuery);
+    }
+
+    private Comparator<EnrollmentCatalogCourse> sortComparator(String sortValue) {
+        if (SORT_CODE_DESC.equals(sortValue)) {
+            return Comparator.comparing((EnrollmentCatalogCourse course) -> normalize(course.courseCode())).reversed();
+        }
+        if (SORT_TITLE_ASC.equals(sortValue)) {
+            return Comparator.comparing(course -> normalize(course.courseName()));
+        }
+        return Comparator.comparing(course -> normalize(course.courseCode()));
     }
 
     private int countSections(EnrollmentCatalogCourse course) {
