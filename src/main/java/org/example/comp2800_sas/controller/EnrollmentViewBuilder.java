@@ -1,9 +1,11 @@
 package org.example.comp2800_sas.controller;
 
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -550,10 +552,12 @@ public class EnrollmentViewBuilder {
         }
 
         toggleButton.setOnAction(e -> {
-            boolean open = offeringsBox.isVisible();
-            offeringsBox.setVisible(!open);
-            offeringsBox.setManaged(!open);
-            toggleButton.setText(open ? "Show Offerings" : "Hide Offerings");
+            preserveScrollPosition(toggleButton, () -> {
+                boolean open = offeringsBox.isVisible();
+                offeringsBox.setVisible(!open);
+                offeringsBox.setManaged(!open);
+                toggleButton.setText(open ? "Show Offerings" : "Hide Offerings");
+            });
         });
 
         card.getChildren().addAll(header, metadata, description, new Separator(), offeringsBox);
@@ -1297,6 +1301,31 @@ public class EnrollmentViewBuilder {
         return hasText(section.notes())
                 && !Boolean.TRUE.equals(section.manualEntryRequired())
                 && !normalizedNotes.contains("placeholder added automatically");
+    }
+
+    private void preserveScrollPosition(Node sourceNode, Runnable action) {
+        List<ScrollPane> scrollPanes = new ArrayList<>();
+        List<Double> verticalValues = new ArrayList<>();
+        List<Double> horizontalValues = new ArrayList<>();
+
+        Parent parent = sourceNode.getParent();
+        while (parent != null) {
+            if (parent instanceof ScrollPane scrollPane) {
+                scrollPanes.add(scrollPane);
+                verticalValues.add(scrollPane.getVvalue());
+                horizontalValues.add(scrollPane.getHvalue());
+            }
+            parent = parent.getParent();
+        }
+
+        action.run();
+
+        Platform.runLater(() -> {
+            for (int i = 0; i < scrollPanes.size(); i++) {
+                scrollPanes.get(i).setVvalue(verticalValues.get(i));
+                scrollPanes.get(i).setHvalue(horizontalValues.get(i));
+            }
+        });
     }
 
     private String normalize(String value) {
