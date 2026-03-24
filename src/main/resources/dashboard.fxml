@@ -28,7 +28,7 @@
         <Button fx:id="btnHome"     text="Home"     styleClass="nav-btn, nav-btn-active" onAction="#showHome"/>
         <Button fx:id="btnCourses"  text="Courses"  styleClass="nav-btn" onAction="#showCourses"/>
         <Button fx:id="btnSchedule" text="Enrollment" styleClass="nav-btn" onAction="#showSchedule"/>
-        <Button fx:id="btnPlanner"  text="Planner" styleClass="nav-btn" onAction="#showPlanner"/>
+        <Button fx:id="btnPlanner"  text="Calendar" styleClass="nav-btn" onAction="#showPlanner"/>
         <Button fx:id="btnAdvisors" text="Advisors" styleClass="nav-btn" onAction="#showAdvisors"/>
         <Button fx:id="btnReports"  text="Reports"  styleClass="nav-btn" onAction="#showReports"/>
         <Button                     text="Log Out"  styleClass="nav-btn-logout" onAction="#handleLogout"/>
@@ -51,7 +51,7 @@
         <HBox HBox.hgrow="ALWAYS"/>
         <VBox styleClass="stat-box" alignment="CENTER" spacing="2">
             <Label fx:id="enrolledLabel" text="0" styleClass="stat-num-yellow"/>
-            <Label text="Planned Options" styleClass="stat-label"/>
+            <Label text="Calendar Items" styleClass="stat-label"/>
         </VBox>
     </HBox>
 

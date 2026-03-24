@@ -329,7 +329,7 @@ public class DashboardController {
             ).build(catalog);
             StackPane.setAlignment(plannerView, Pos.TOP_CENTER);
             contentArea.getChildren().add(plannerView);
-        }, "Failed to load planner data.");
+        }, "Failed to load calendar data.");
     }
 
     private void loadCatalogView(Consumer<EnrollmentCatalogData> onSuccess, String failureText) {

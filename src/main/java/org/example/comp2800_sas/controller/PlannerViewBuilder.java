@@ -31,6 +31,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -49,6 +50,10 @@ public class PlannerViewBuilder {
     private static final int DAY_START_MINUTES = 8 * 60;
     private static final int DAY_END_MINUTES = 21 * 60;
     private static final int HOUR_HEIGHT = 56;
+    private static final double PIXELS_PER_MINUTE = HOUR_HEIGHT / 60.0;
+    private static final double TIME_COLUMN_WIDTH = 74;
+    private static final double DAY_COLUMN_WIDTH = 156;
+    private static final double EVENT_INSET = 6;
     private static final DateTimeFormatter TIME_LABEL_FORMATTER = DateTimeFormatter.ofPattern("h:mm a");
 
     private final EnrollmentCatalogService catalogService;
@@ -73,11 +78,11 @@ public class PlannerViewBuilder {
         wrapper.setPadding(new Insets(24));
         wrapper.setMaxWidth(1260);
 
-        Label title = new Label("Semester Planner");
+        Label title = new Label("Semester Calendar");
         title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #173b63;");
 
         Label subtitle = new Label(
-                "Build a draft weekly schedule, compare course options, and spot timing conflicts before registration."
+                "Build a draft weekly calendar, compare course options, and spot timing conflicts before registration."
         );
         subtitle.setWrapText(true);
         subtitle.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px;");
@@ -114,7 +119,7 @@ public class PlannerViewBuilder {
         sessionSelector.setPrefWidth(240);
 
         TextField quickSearch = new TextField();
-        quickSearch.setPromptText("Search planner catalog...");
+        quickSearch.setPromptText("Search calendar catalog...");
         quickSearch.setStyle(FIELD_STYLE);
         quickSearch.setPrefWidth(220);
 
@@ -144,6 +149,12 @@ public class PlannerViewBuilder {
 
         wrapper.getChildren().add(toolbar);
 
+        VBox feedbackHost = new VBox();
+        wrapper.getChildren().add(feedbackHost);
+
+        String[] feedbackMessage = new String[1];
+        String[] feedbackTone = new String[]{"info"};
+
         HBox mainSplit = new HBox(18);
         VBox.setVgrow(mainSplit, Priority.ALWAYS);
 
@@ -160,7 +171,7 @@ public class PlannerViewBuilder {
 
         FlowPane stats = new FlowPane(14, 14);
         stats.getChildren().addAll(
-                createStatCard(plannedCountValue, "Planned Options"),
+                createStatCard(plannedCountValue, "Calendar Items"),
                 createStatCard(plannedUnitsValue, "Total Units"),
                 createStatCard(conflictValue, "Conflicts")
         );
@@ -179,13 +190,26 @@ public class PlannerViewBuilder {
             plannedUnitsValue.setText(formatUnits(plannerService.getTotalUnitsForSession(session)));
             conflictValue.setText(String.valueOf(conflicts.size()));
 
+            feedbackHost.getChildren().clear();
+            if (hasText(feedbackMessage[0])) {
+                feedbackHost.getChildren().add(createFeedbackBanner(feedbackMessage[0], feedbackTone[0]));
+            }
+
             calendarColumn.getChildren().setAll(
                     stats,
                     createConflictCard(conflicts),
                     createCalendarCard(session, plannedOptions, conflicts)
             );
             sidebar.getChildren().setAll(
-                    createPlannedCoursesCard(session, plannedOptions, renderRef[0]),
+                    createPlannedCoursesCard(
+                            session,
+                            plannedOptions,
+                            (message, tone) -> {
+                                feedbackMessage[0] = message;
+                                feedbackTone[0] = tone;
+                            },
+                            renderRef[0]
+                    ),
                     createQuickAddCard(
                             catalog,
                             session,
@@ -193,6 +217,10 @@ public class PlannerViewBuilder {
                             statusFilter.getValue(),
                             componentFilter.getValue(),
                             deliveryFilter.getValue(),
+                            (message, tone) -> {
+                                feedbackMessage[0] = message;
+                                feedbackTone[0] = tone;
+                            },
                             renderRef[0]
                     )
             );
@@ -208,7 +236,12 @@ public class PlannerViewBuilder {
         return wrapper;
     }
 
-    private VBox createPlannedCoursesCard(String session, List<PlannedCourseOption> plannedOptions, Runnable refreshView) {
+    private VBox createPlannedCoursesCard(
+            String session,
+            List<PlannedCourseOption> plannedOptions,
+            java.util.function.BiConsumer<String, String> showFeedback,
+            Runnable refreshView
+    ) {
         VBox card = new VBox(12);
         card.setPadding(new Insets(18, 18, 18, 18));
         card.setStyle(SURFACE_CARD_STYLE);
@@ -216,29 +249,36 @@ public class PlannerViewBuilder {
         Label title = new Label("Planned Courses");
         title.setStyle("-fx-text-fill: #173b63; -fx-font-size: 16px; -fx-font-weight: bold;");
 
-        Label helper = new Label("Manage the draft schedule for " + session + ".");
+        Label helper = new Label("Manage the draft calendar for " + session + ".");
         helper.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px;");
+        helper.setWrapText(true);
 
         Button clearButton = createActionButton(
-                "Clear Session",
+                "Clear Calendar",
                 "-fx-background-color: #fde7e7; -fx-text-fill: #9f3030;"
         );
+        clearButton.setMinWidth(132);
+        clearButton.setPrefWidth(132);
+        clearButton.setMaxWidth(Region.USE_PREF_SIZE);
         clearButton.setDisable(plannedOptions.isEmpty());
         clearButton.setOnAction(e -> {
             plannerService.clearPlan(session);
             onPlannerUpdated.run();
+            showFeedback.accept("Cleared all calendar items for " + session + ".", "info");
             refreshView.run();
         });
 
         HBox header = new HBox(12);
         header.setAlignment(Pos.CENTER_LEFT);
+        VBox titleBlock = new VBox(4, title, helper);
+        HBox.setHgrow(titleBlock, Priority.ALWAYS);
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        header.getChildren().addAll(new VBox(4, title, helper), spacer, clearButton);
+        header.getChildren().addAll(titleBlock, spacer, clearButton);
 
         VBox items = new VBox(10);
         if (plannedOptions.isEmpty()) {
-            Label empty = new Label("No options are planned for this session yet. Add one from Enrollment or from Quick Add below.");
+            Label empty = new Label("No course options are added to this calendar yet. Add one from Enrollment or from Quick Add below.");
             empty.setWrapText(true);
             empty.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px;");
             items.getChildren().add(empty);
@@ -282,9 +322,18 @@ public class PlannerViewBuilder {
                         "Remove",
                         "-fx-background-color: #173b63; -fx-text-fill: white;"
                 );
+                removeButton.setMinWidth(104);
                 removeButton.setOnAction(e -> {
-                    plannerService.removePlannedOption(session, option.planId());
-                    onPlannerUpdated.run();
+                    boolean removed = plannerService.removePlannedOption(session, option.planId());
+                    if (removed) {
+                        onPlannerUpdated.run();
+                        showFeedback.accept(
+                                "Removed " + option.courseCode() + " option " + option.optionNumber() + " from your calendar.",
+                                "info"
+                        );
+                    } else {
+                        showFeedback.accept("That course option is no longer in your calendar.", "warning");
+                    }
                     refreshView.run();
                 });
 
@@ -309,6 +358,7 @@ public class PlannerViewBuilder {
             String statusFilter,
             String componentFilter,
             String deliveryFilter,
+            java.util.function.BiConsumer<String, String> showFeedback,
             Runnable refreshView
     ) {
         VBox card = new VBox(12);
@@ -318,19 +368,26 @@ public class PlannerViewBuilder {
         Label title = new Label("Quick Add");
         title.setStyle("-fx-text-fill: #173b63; -fx-font-size: 16px; -fx-font-weight: bold;");
 
-        Label helper = new Label("Add an option directly to the " + session + " planner.");
+        Label helper = new Label("Add an option directly to the " + session + " calendar.");
         helper.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px;");
+        helper.setWrapText(true);
 
         Button openEnrollment = createActionButton(
-                "Open Full Enrollment",
+                "Open Enrollment",
                 "-fx-background-color: #eef4fb; -fx-text-fill: #173b63;"
         );
+        openEnrollment.setMinWidth(144);
+        openEnrollment.setPrefWidth(144);
+        openEnrollment.setMaxWidth(Region.USE_PREF_SIZE);
         openEnrollment.setOnAction(e -> openEnrollmentPage.run());
 
         HBox header = new HBox(12);
+        header.setAlignment(Pos.CENTER_LEFT);
+        VBox titleBlock = new VBox(4, title, helper);
+        HBox.setHgrow(titleBlock, Priority.ALWAYS);
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        header.getChildren().addAll(new VBox(4, title, helper), spacer, openEnrollment);
+        header.getChildren().addAll(titleBlock, spacer, openEnrollment);
 
         VBox results = new VBox(10);
 
@@ -347,7 +404,7 @@ public class PlannerViewBuilder {
                 .toList();
 
         if (filteredCourses.isEmpty()) {
-            Label empty = new Label("No course options match the current planner filters.");
+            Label empty = new Label("No course options match the current calendar filters.");
             empty.setWrapText(true);
             empty.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px;");
             results.getChildren().add(empty);
@@ -374,6 +431,7 @@ public class PlannerViewBuilder {
                     }
 
                     boolean planned = plannerService.isOptionPlanned(session, course.courseCode(), option.optionNumber());
+                    boolean courseAlreadyPlanned = plannerService.hasCoursePlannedInSession(session, course.courseCode());
                     HBox row = new HBox(8);
                     row.setAlignment(Pos.CENTER_LEFT);
 
@@ -393,15 +451,19 @@ public class PlannerViewBuilder {
                     HBox.setHgrow(rowSpacer, Priority.ALWAYS);
 
                     Button addButton = createActionButton(
-                            planned ? "Planned" : "Add",
+                            option.sections().isEmpty() ? "No Sections" : planned ? "Already Added" : courseAlreadyPlanned ? "Replace in Calendar" : "Add to Calendar",
                             planned
                                     ? "-fx-background-color: #dbe6f3; -fx-text-fill: #5d7087;"
                                     : "-fx-background-color: #173b63; -fx-text-fill: white;"
                     );
-                    addButton.setDisable(planned || option.sections().isEmpty());
+                    addButton.setDisable(option.sections().isEmpty());
+                    addButton.setMinWidth(130);
                     addButton.setOnAction(e -> {
                         PlannerSelectionResult result = plannerService.addOption(course, option);
-                        onPlannerUpdated.run();
+                        if (result.status() != PlannerSelectionStatus.DUPLICATE) {
+                            onPlannerUpdated.run();
+                        }
+                        showFeedback.accept(buildAddFeedbackMessage(result), feedbackTone(result));
                         refreshView.run();
                     });
 
@@ -439,7 +501,7 @@ public class PlannerViewBuilder {
             Label title = new Label("No conflicts detected");
             title.setStyle("-fx-text-fill: #246344; -fx-font-size: 15px; -fx-font-weight: bold;");
 
-            Label detail = new Label("Your currently planned timed sections fit together in the weekly grid.");
+            Label detail = new Label("Your current calendar items fit together in the weekly grid.");
             detail.setWrapText(true);
             detail.setStyle("-fx-text-fill: #4d6e5c; -fx-font-size: 12px;");
 
@@ -452,7 +514,7 @@ public class PlannerViewBuilder {
                         "-fx-border-color: #f0c8bf;"
         );
 
-        Label title = new Label("Conflicts to Review");
+        Label title = new Label("Calendar Conflicts");
         title.setStyle("-fx-text-fill: #9f3030; -fx-font-size: 15px; -fx-font-weight: bold;");
 
         Label detail = new Label("Remove or replace one of the overlapping options below.");
@@ -500,24 +562,36 @@ public class PlannerViewBuilder {
                 .count();
         if (unscheduledCount > 0) {
             Label unscheduled = new Label(
-                    unscheduledCount + " planned option" + (unscheduledCount == 1 ? "" : "s")
-                            + " have no scheduled meeting blocks and remain in the planned list."
+                    unscheduledCount + " calendar item" + (unscheduledCount == 1 ? "" : "s")
+                            + " have no scheduled meeting blocks and remain in the added list."
             );
             unscheduled.setWrapText(true);
             unscheduled.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px;");
             card.getChildren().add(unscheduled);
         }
 
-        int totalHeight = ((DAY_END_MINUTES - DAY_START_MINUTES) / 60) * HOUR_HEIGHT;
+        int totalHeight = (int) Math.round((DAY_END_MINUTES - DAY_START_MINUTES) * PIXELS_PER_MINUTE);
 
         HBox dayHeader = new HBox(10);
         Region timeSpacer = new Region();
-        timeSpacer.setMinWidth(72);
-        timeSpacer.setPrefWidth(72);
+        timeSpacer.setMinWidth(TIME_COLUMN_WIDTH);
+        timeSpacer.setPrefWidth(TIME_COLUMN_WIDTH);
+        timeSpacer.setMaxWidth(TIME_COLUMN_WIDTH);
         dayHeader.getChildren().add(timeSpacer);
 
         List<Pane> dayPanes = new ArrayList<>();
         for (String day : WEEKDAY_HEADERS) {
+            Pane dayPane = new Pane();
+            dayPane.setPrefSize(DAY_COLUMN_WIDTH, totalHeight);
+            dayPane.setMinSize(DAY_COLUMN_WIDTH, totalHeight);
+            dayPane.setMaxWidth(Double.MAX_VALUE);
+            dayPane.setStyle(
+                    "-fx-background-color: linear-gradient(to bottom, #ffffff, #fbfdff); " +
+                            "-fx-background-radius: 14; -fx-border-radius: 14; -fx-border-color: #dfe7f1;"
+            );
+            decorateDayPane(dayPane, totalHeight);
+            dayPanes.add(dayPane);
+
             Label dayLabel = new Label(day);
             dayLabel.setMaxWidth(Double.MAX_VALUE);
             dayLabel.setAlignment(Pos.CENTER);
@@ -529,22 +603,15 @@ public class PlannerViewBuilder {
             VBox headerPane = new VBox(dayLabel);
             headerPane.setAlignment(Pos.CENTER);
             HBox.setHgrow(headerPane, Priority.ALWAYS);
-            headerPane.setPrefWidth(150);
+            headerPane.setMinWidth(DAY_COLUMN_WIDTH);
+            headerPane.prefWidthProperty().bind(dayPane.widthProperty());
             dayHeader.getChildren().add(headerPane);
-
-            Pane dayPane = new Pane();
-            dayPane.setPrefSize(150, totalHeight);
-            dayPane.setMinHeight(totalHeight);
-            dayPane.setStyle(
-                    "-fx-background-color: linear-gradient(to bottom, #ffffff, #fbfdff); " +
-                            "-fx-background-radius: 14; -fx-border-radius: 14; -fx-border-color: #dfe7f1;"
-            );
-            decorateDayPane(dayPane, totalHeight);
-            dayPanes.add(dayPane);
         }
 
         VBox timeColumn = new VBox();
-        timeColumn.setPrefWidth(72);
+        timeColumn.setMinWidth(TIME_COLUMN_WIDTH);
+        timeColumn.setPrefWidth(TIME_COLUMN_WIDTH);
+        timeColumn.setMaxWidth(TIME_COLUMN_WIDTH);
         for (int minutes = DAY_START_MINUTES; minutes < DAY_END_MINUTES; minutes += 60) {
             Label time = new Label(LocalTime.of(minutes / 60, minutes % 60).format(TIME_LABEL_FORMATTER));
             time.setStyle("-fx-text-fill: #607286; -fx-font-size: 11px; -fx-font-weight: bold;");
@@ -576,7 +643,7 @@ public class PlannerViewBuilder {
                 int dayIndex = WEEKDAY_HEADERS.indexOf(block.dayLabel());
                 Pane dayPane = dayPanes.get(dayIndex);
                 dayPane.getChildren().add(createCalendarBlock(
-                        option,
+                        dayPane,
                         block,
                         conflictBlockIds.contains(block.blockId())
                 ));
@@ -591,7 +658,7 @@ public class PlannerViewBuilder {
         card.getChildren().addAll(dayHeader, gridScroll);
 
         if (plannedOptions.isEmpty()) {
-            Label empty = new Label("No planned options for this session yet. Use Quick Add or Enrollment to build your draft schedule.");
+            Label empty = new Label("No calendar items for this session yet. Use Quick Add or Enrollment to build your draft calendar.");
             empty.setWrapText(true);
             empty.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px;");
             card.getChildren().add(empty);
@@ -632,6 +699,7 @@ public class PlannerViewBuilder {
                 "-fx-background-radius: 999; -fx-padding: 8 16; -fx-font-size: 12px; " +
                         "-fx-font-weight: bold; -fx-cursor: hand; " + extraStyle
         );
+        button.setWrapText(false);
         return button;
     }
 
@@ -686,22 +754,30 @@ public class PlannerViewBuilder {
         }
     }
 
-    private VBox createCalendarBlock(PlannedCourseOption option, PlannerMeetingBlock block, boolean conflict) {
+    private VBox createCalendarBlock(Pane dayPane, PlannerMeetingBlock block, boolean conflict) {
         VBox event = new VBox(2);
-        event.setLayoutX(6);
-        event.setLayoutY(minutesToPixels(block.startMinutes()));
-        event.setPrefWidth(138);
-        event.setPrefHeight(Math.max(minutesToPixels(block.endMinutes()) - minutesToPixels(block.startMinutes()), 48));
+        double topOffset = minutesToOffset(block.startMinutes());
+        double blockHeight = Math.max(durationToPixels(block.durationMinutes()), 48);
+        double maxHeight = Math.max(dayPane.getPrefHeight() - topOffset - EVENT_INSET, 48);
+
+        event.setLayoutX(EVENT_INSET);
+        event.setLayoutY(topOffset);
+        event.prefWidthProperty().bind(dayPane.widthProperty().subtract(EVENT_INSET * 2));
+        event.maxWidthProperty().bind(dayPane.widthProperty().subtract(EVENT_INSET * 2));
+        event.setPrefHeight(Math.min(blockHeight, maxHeight));
         event.setPadding(new Insets(8, 8, 8, 8));
-        event.setStyle(buildCalendarBlockStyle(option.courseCode(), conflict));
+        event.setStyle(buildCalendarBlockStyle(block.courseCode(), conflict));
 
         Label code = new Label(block.courseCode());
+        code.setWrapText(true);
         code.setStyle("-fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold;");
 
         Label section = new Label(block.sectionType() + " " + block.sectionNumber());
+        section.setWrapText(true);
         section.setStyle("-fx-text-fill: rgba(255,255,255,0.92); -fx-font-size: 10px;");
 
         Label time = new Label(block.startTime().format(TIME_LABEL_FORMATTER) + " - " + block.endTime().format(TIME_LABEL_FORMATTER));
+        time.setWrapText(true);
         time.setStyle("-fx-text-fill: rgba(255,255,255,0.92); -fx-font-size: 10px;");
 
         event.getChildren().addAll(code, section, time);
@@ -726,8 +802,12 @@ public class PlannerViewBuilder {
         };
     }
 
-    private int minutesToPixels(int minutes) {
-        return (int) Math.round(((minutes - DAY_START_MINUTES) / 60.0) * HOUR_HEIGHT);
+    private double minutesToOffset(int minutes) {
+        return Math.max((minutes - DAY_START_MINUTES) * PIXELS_PER_MINUTE, 0);
+    }
+
+    private double durationToPixels(int durationMinutes) {
+        return Math.max(durationMinutes * PIXELS_PER_MINUTE, 0);
     }
 
     private String deliveryBadgeStyle(String deliveryMode) {
@@ -788,14 +868,100 @@ public class PlannerViewBuilder {
                 + " during " + formatMinutesRange(conflict.startMinutes(), conflict.endMinutes()) + ".";
     }
 
+    private VBox createFeedbackBanner(String message, String tone) {
+        VBox banner = new VBox();
+        banner.setPadding(new Insets(12, 16, 12, 16));
+        banner.setStyle(feedbackBannerStyle(tone));
+
+        Label text = new Label(message);
+        text.setWrapText(true);
+        text.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + feedbackTextColor(tone) + ";");
+
+        banner.getChildren().add(text);
+        return banner;
+    }
+
+    private String buildAddFeedbackMessage(PlannerSelectionResult result) {
+        String optionLabel = result.plannedOption().courseCode() + " option " + result.plannedOption().optionNumber();
+
+        if (result.status() == PlannerSelectionStatus.DUPLICATE) {
+            return "This option has already been added to your calendar.";
+        }
+
+        String baseMessage = result.status() == PlannerSelectionStatus.REPLACED
+                ? "Updated your calendar to use " + optionLabel + "."
+                : "Added " + optionLabel + " to your calendar.";
+
+        if (!result.hasConflicts()) {
+            return baseMessage;
+        }
+
+        PlannerConflict firstConflict = result.conflicts().get(0);
+        PlannerMeetingBlock otherBlock = otherConflictBlock(result, firstConflict);
+        String detail = " Conflict detected with " + otherBlock.courseCode()
+                + " on " + firstConflict.dayLabel()
+                + " during " + formatMinutesRange(firstConflict.startMinutes(), firstConflict.endMinutes()) + ".";
+
+        Set<String> conflictingCourses = new LinkedHashSet<>();
+        for (PlannerConflict conflict : result.conflicts()) {
+            conflictingCourses.add(otherConflictBlock(result, conflict).courseCode());
+        }
+        if (conflictingCourses.size() > 1) {
+            detail += " " + (conflictingCourses.size() - 1) + " more overlapping course"
+                    + (conflictingCourses.size() - 1 == 1 ? "" : "s") + " remain in this calendar.";
+        }
+
+        return baseMessage + detail;
+    }
+
+    private PlannerMeetingBlock otherConflictBlock(PlannerSelectionResult result, PlannerConflict conflict) {
+        return sameValue(conflict.first().planId(), result.plannedOption().planId())
+                ? conflict.second()
+                : conflict.first();
+    }
+
+    private String feedbackTone(PlannerSelectionResult result) {
+        if (result.status() == PlannerSelectionStatus.DUPLICATE) {
+            return "info";
+        }
+        return result.hasConflicts() ? "warning" : "success";
+    }
+
+    private String feedbackBannerStyle(String tone) {
+        return switch (tone) {
+            case "warning" -> "-fx-background-color: #fff6f4; -fx-background-radius: 14; " +
+                    "-fx-border-radius: 14; -fx-border-color: #f0c8bf;";
+            case "success" -> "-fx-background-color: #f5fbf7; -fx-background-radius: 14; " +
+                    "-fx-border-radius: 14; -fx-border-color: #d7eadc;";
+            default -> "-fx-background-color: #eef4fb; -fx-background-radius: 14; " +
+                    "-fx-border-radius: 14; -fx-border-color: #d9e3ef;";
+        };
+    }
+
+    private String feedbackTextColor(String tone) {
+        return switch (tone) {
+            case "warning" -> "#7f4a4a";
+            case "success" -> "#246344";
+            default -> "#31506f";
+        };
+    }
+
     private String formatMinutesRange(int startMinutes, int endMinutes) {
         return LocalTime.of(startMinutes / 60, startMinutes % 60).format(TIME_LABEL_FORMATTER)
                 + " - "
                 + LocalTime.of(endMinutes / 60, endMinutes % 60).format(TIME_LABEL_FORMATTER);
     }
 
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
     private String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private boolean sameValue(String left, String right) {
+        return normalize(left).equals(normalize(right));
     }
 
     private boolean sessionMatches(EnrollmentCatalogOption option, String session) {

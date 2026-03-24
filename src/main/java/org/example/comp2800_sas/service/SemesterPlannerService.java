@@ -71,8 +71,13 @@ public class SemesterPlannerService {
 
         if (existingSelection.isPresent()
                 && sameValue(existingSelection.get().getOptionNumber(), plannedOption.optionNumber())) {
-            return new PlannerSelectionResult(PlannerSelectionStatus.DUPLICATE, plannedOption);
+            return new PlannerSelectionResult(PlannerSelectionStatus.DUPLICATE, plannedOption, List.of());
         }
+
+        List<PlannedCourseOption> previewPlan = new ArrayList<>(getPlanForSession(plannedOption.session()));
+        previewPlan.removeIf(existing -> sameValue(existing.courseCode(), plannedOption.courseCode()));
+        previewPlan.add(plannedOption);
+        List<PlannerConflict> candidateConflicts = detectCandidateConflicts(previewPlan, plannedOption.planId());
 
         PlannerSelection selection = existingSelection.orElseGet(() ->
                 new PlannerSelection(
@@ -92,7 +97,7 @@ public class SemesterPlannerService {
         PlannerSelectionStatus status = existingSelection.isPresent()
                 ? PlannerSelectionStatus.REPLACED
                 : PlannerSelectionStatus.ADDED;
-        return new PlannerSelectionResult(status, plannedOption);
+        return new PlannerSelectionResult(status, plannedOption, candidateConflicts);
     }
 
     public synchronized boolean removePlannedOption(String session, String planId) {
@@ -277,6 +282,15 @@ public class SemesterPlannerService {
         } catch (NumberFormatException exception) {
             return 0;
         }
+    }
+
+    private List<PlannerConflict> detectCandidateConflicts(List<PlannedCourseOption> previewPlan, String candidatePlanId) {
+        return PlannerScheduleUtils.detectConflicts(previewPlan).stream()
+                .filter(conflict ->
+                        sameValue(conflict.first().planId(), candidatePlanId)
+                                || sameValue(conflict.second().planId(), candidatePlanId)
+                )
+                .toList();
     }
 
     private PlanKey parsePlanId(String planId) {
