@@ -71,7 +71,7 @@ public class DashboardController {
         this.currentStudent = student;
         studentNameLabel.setText(student.getName());
         welcomeLabel.setText("Welcome back, " + student.getName().split(" ")[0] + "!");
-        plannerService.clearAllPlans();
+        plannerService.setCurrentStudent(student.getStudentId());
         refreshPlannerBadge();
     }
 
@@ -706,6 +706,8 @@ public class DashboardController {
     @FXML
     public void handleLogout() {
         try {
+            currentStudent = null;
+            plannerService.clearCurrentStudent();
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/login.fxml"));
             loader.setControllerFactory(applicationContext::getBean);
             Parent root = loader.load();

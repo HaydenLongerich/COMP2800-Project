@@ -80,7 +80,6 @@ public class EnrollmentViewBuilder {
         Label conflictValue = new Label();
 
         wrapper.getChildren().add(createHero(plannedCountValue, plannedSessionValue, conflictValue));
-        wrapper.getChildren().add(createSummaryBar(catalog.summary()));
 
         VBox controlsCard = new VBox(12);
         controlsCard.setPadding(new Insets(16, 18, 16, 18));
