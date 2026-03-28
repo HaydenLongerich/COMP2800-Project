@@ -10,7 +10,7 @@ import java.util.List;
 @Getter
 @Setter
 @Entity
-@Table(name = "SECTION")
+@Table(name = "SECTION") // Identifies the specific instance of course offering within the registry/data
 public class Section {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
