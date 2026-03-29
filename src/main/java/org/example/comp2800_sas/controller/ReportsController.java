@@ -320,7 +320,9 @@ public class ReportsController {
         badges.getChildren().addAll(
                 createBadge("Option " + option.optionNumber(), "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"),
                 createBadge(option.deliveryMode(), "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"),
-                createBadge(option.hasScheduledMeetings() ? "Scheduled" : "Needs timing",
+                "Online".equalsIgnoreCase(option.deliveryMode())
+                        ? createBadge("Online – Async", "-fx-background-color: #dff3ff; -fx-text-fill: #1c5f93;")
+                        : createBadge(option.hasScheduledMeetings() ? "Scheduled" : "Needs timing",
                         option.hasScheduledMeetings()
                                 ? "-fx-background-color: #dcf5e5; -fx-text-fill: #246344;"
                                 : "-fx-background-color: #fff8e6; -fx-text-fill: #7a5a00;")

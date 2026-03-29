@@ -4,6 +4,9 @@ import org.example.comp2800_sas.model.Enrollment;
 import org.example.comp2800_sas.model.EnrollmentId;
 import org.example.comp2800_sas.model.EnrollmentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -17,4 +20,9 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Enrollme
     int countBySection_SectionIdAndStatus(Integer sectionId, EnrollmentStatus status);
     boolean existsByStudent_StudentIdAndSection_SectionIdAndStatus(Integer studentId, Integer sectionId, EnrollmentStatus status);
     boolean existsByStudent_StudentIdAndSection_Course_CourseIdAndStatus(Integer studentId, Integer prerequisiteCourseId, EnrollmentStatus enrollmentStatus);
+
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM Enrollment e WHERE e.student.studentId = :studentId")
+    void deleteByStudentId(Integer studentId);
 }

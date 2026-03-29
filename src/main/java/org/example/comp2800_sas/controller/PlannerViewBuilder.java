@@ -315,12 +315,20 @@ public class PlannerViewBuilder {
                         option.deliveryMode(),
                         deliveryBadgeStyle(option.deliveryMode())
                 ));
-                badges.getChildren().add(createBadge(
-                        option.hasScheduledMeetings() ? "Scheduled" : "No Timed Meeting",
-                        option.hasScheduledMeetings()
-                                ? "-fx-background-color: #dcf5e5; -fx-text-fill: #1a6b3d;"
-                                : "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"
-                ));
+                boolean isOnline = "Online".equalsIgnoreCase(option.deliveryMode());
+                if (isOnline) {
+                    badges.getChildren().add(createBadge(
+                            "Online – Async",
+                            "-fx-background-color: #dff3ff; -fx-text-fill: #1c5f93;"
+                    ));
+                } else {
+                    badges.getChildren().add(createBadge(
+                            option.hasScheduledMeetings() ? "Scheduled" : "Needs timing",
+                            option.hasScheduledMeetings()
+                                    ? "-fx-background-color: #dcf5e5; -fx-text-fill: #1a6b3d;"
+                                    : "-fx-background-color: #fff3cd; -fx-text-fill: #856404;"
+                    ));
+                }
 
                 Label detail = new Label(buildPlannedDetail(option));
                 detail.setWrapText(true);

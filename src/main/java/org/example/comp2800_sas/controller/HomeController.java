@@ -372,16 +372,21 @@ public class HomeController {
 
         sections.getChildren().add(createInsightBlock(
                 "Needs Scheduling",
-                snapshot.unscheduledOptions().isEmpty()
+                snapshot.unscheduledOptions().stream()
+                        .filter(option -> !"Online".equalsIgnoreCase(option.deliveryMode()))
+                        .limit(4)
+                        .map(option -> option.courseCode() + " " + option.courseTitle() + " is in your planner but has no timed meeting blocks yet.")
+                        .toList().isEmpty()
                         ? List.of("Every planned course currently has scheduled meeting times.")
                         : snapshot.unscheduledOptions().stream()
+                        .filter(option -> !"Online".equalsIgnoreCase(option.deliveryMode()))
                         .limit(4)
                         .map(option -> option.courseCode() + " " + option.courseTitle() + " is in your planner but has no timed meeting blocks yet.")
                         .toList(),
-                snapshot.unscheduledOptions().isEmpty()
+                snapshot.unscheduledOptions().stream().noneMatch(o -> !"Online".equalsIgnoreCase(o.deliveryMode()))
                         ? "#f3fbf5"
                         : "#fff8e6",
-                snapshot.unscheduledOptions().isEmpty()
+                snapshot.unscheduledOptions().stream().noneMatch(o -> !"Online".equalsIgnoreCase(o.deliveryMode()))
                         ? "#246344"
                         : "#7a5a00"
         ));
@@ -424,7 +429,9 @@ public class HomeController {
                 createBadge(option.session(), "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"),
                 createBadge("Option " + option.optionNumber(), "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"),
                 createBadge(option.deliveryMode(), "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"),
-                createBadge(
+                "Online".equalsIgnoreCase(option.deliveryMode())
+                        ? createBadge("Online – Async", "-fx-background-color: #dff3ff; -fx-text-fill: #1c5f93;")
+                        : createBadge(
                         option.hasScheduledMeetings() ? "Scheduled" : "Needs timing",
                         option.hasScheduledMeetings()
                                 ? "-fx-background-color: #dcf5e5; -fx-text-fill: #246344;"

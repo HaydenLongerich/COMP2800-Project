@@ -17,6 +17,8 @@ import javafx.scene.layout.VBox;
 import org.example.comp2800_sas.model.EnrollmentCatalogSummary;
 import org.example.comp2800_sas.model.Student;
 import org.example.comp2800_sas.model.StudentDashboardSnapshot;
+import org.example.comp2800_sas.repository.EnrollmentRepository;
+import org.example.comp2800_sas.repository.PlannerSelectionRepository;
 import org.example.comp2800_sas.repository.StudentRepository;
 import org.example.comp2800_sas.service.StudentDashboardService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +38,8 @@ public class AdminStudentsController {
 
     @Autowired private StudentRepository studentRepository;
     @Autowired private StudentDashboardService studentDashboardService;
+    @Autowired private EnrollmentRepository enrollmentRepository;
+    @Autowired private PlannerSelectionRepository plannerSelectionRepository;
 
     @FXML private VBox root;
 
@@ -175,11 +179,8 @@ public class AdminStudentsController {
 
             try {
                 studentRepository.save(new Student(name));
-
-                // clear fields after success
                 nameField.clear();
                 passwordField.clear();
-
                 loadStudents("Student '" + name + "' was added to the shared student roster.", true);
             } catch (Exception exception) {
                 feedbackLabel.setText("Failed to add the student.");
@@ -251,14 +252,13 @@ public class AdminStudentsController {
                                 "-fx-border-color: transparent transparent #f0f0f0 transparent;"
                 );
 
-                Label idLabel = value(String.valueOf(student.getStudentId()), 70, false, "#888");
-                Label nameLabel = value(student.getName(), 180, true, "#1a3a5c");
-
+                Label idLabel       = value(String.valueOf(student.getStudentId()), 70, false, "#888");
+                Label nameLabel     = value(student.getName(), 180, true, "#1a3a5c");
                 Label passwordLabel = value(generateFPassword(), 140, false, "#888");
-                Label plannedLabel = value(snapshot.totalPlannedCourseCount() + " course" +
+                Label plannedLabel  = value(snapshot.totalPlannedCourseCount() + " course" +
                         (snapshot.totalPlannedCourseCount() == 1 ? "" : "s"), 110, false, "#246344");
-                Label unitsLabel = value(formatUnits(snapshot.totalUnits()), 90, false, "#31506f");
-                Label sessionsLabel = value(String.valueOf(snapshot.sessionCount()), 90, false, "#31506f");
+                Label unitsLabel     = value(formatUnits(snapshot.totalUnits()), 90, false, "#31506f");
+                Label sessionsLabel  = value(String.valueOf(snapshot.sessionCount()), 90, false, "#31506f");
                 Label conflictsLabel = value(
                         String.valueOf(snapshot.totalConflictCount()),
                         90,
@@ -273,6 +273,7 @@ public class AdminStudentsController {
                 Button calendarButton = createActionButton("Open Calendar", "#1a3a5c", "white");
                 calendarButton.setPrefWidth(130);
                 calendarButton.setOnAction(event -> openPreviewCalendarAction.accept(student));
+
                 Button removeButton = createActionButton("Remove", "#b94141", "white");
                 removeButton.setPrefWidth(110);
 
@@ -286,14 +287,35 @@ public class AdminStudentsController {
 
                     alert.showAndWait().ifPresent(response -> {
                         if (response == javafx.scene.control.ButtonType.OK) {
-                            try {
-                                Student s = studentRepository.findById(student.getStudentId()).orElse(null);
 
-                                studentRepository.delete(student);
-                                loadStudents("Student '" + student.getName() + "' was removed.", true);
-                            } catch (Exception ex) {
-                                loadStudents("Failed to remove student.", false);
-                            }
+                            Task<Void> deleteTask = new Task<>() {
+                                @Override
+                                protected Void call() {
+                                    // 1. Delete planner selections first
+                                    plannerSelectionRepository.deleteByStudent_StudentId(student.getStudentId());
+
+                                    // 2. Delete enrollments via JPQL @Query (avoids FK constraint)
+                                    enrollmentRepository.deleteByStudentId(student.getStudentId());
+
+                                    // 3. Safe to delete the student row now
+                                    studentRepository.deleteById(student.getStudentId());
+                                    return null;
+                                }
+                            };
+
+                            deleteTask.setOnSucceeded(e ->
+                                    loadStudents("Student '" + student.getName() + "' was removed.", true)
+                            );
+
+                            deleteTask.setOnFailed(e -> {
+                                Throwable ex = deleteTask.getException();
+                                ex.printStackTrace();
+                                loadStudents("Failed to remove student: " + ex.getMessage(), false);
+                            });
+
+                            Thread t = new Thread(deleteTask);
+                            t.setDaemon(true);
+                            t.start();
                         }
                     });
                 });
@@ -355,15 +377,16 @@ public class AdminStudentsController {
                 0
         );
     }
+
     private String generateFPassword() {
-        int length = 6 + (int)(Math.random() * 5); // 6–10 chars
+        int length = 6 + (int)(Math.random() * 5);
         return "•".repeat(length);
     }
+
     private boolean matchesFilter(Student student, StudentDashboardSnapshot snapshot, String filter) {
         if (filter.isBlank()) {
             return true;
         }
-
         String haystack = normalize(
                 student.getStudentId() + " " +
                         clean(student.getName()) + " " +
@@ -415,6 +438,5 @@ public class AdminStudentsController {
     private record AdminStudentData(
             List<Student> students,
             Map<Integer, StudentDashboardSnapshot> snapshotsByStudentId
-    ) {
-    }
+    ) {}
 }

@@ -8,9 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @Transactional
@@ -154,7 +152,6 @@ public class EnrollmentService {
     }
 
     /**
-     *
      * @param studentId The student to search for.
      * @param sectionId The section to search in.
      * @return True, if the student is in the section, otherwise false.
@@ -164,6 +161,43 @@ public class EnrollmentService {
         return enrollmentRepository
                 .existsByStudent_StudentIdAndSection_SectionIdAndStatus(studentId, sectionId, EnrollmentStatus.ENROLLED);
     }
+
+    // ---------------------------------------------------------------
+    // ADMIN SYNC — NEW METHODS
+    // ---------------------------------------------------------------
+
+    /**
+     * Returns true if ANY enrollment row exists for this student+section regardless of status.
+     * Used during admin sync to avoid duplicate key errors.
+     */
+    @Transactional(readOnly = true)
+    public boolean hasEnrollmentRecord(Integer studentId, Integer sectionId) {
+        return enrollmentRepository
+                .findByStudent_StudentIdAndSection_SectionId(studentId, sectionId)
+                .isPresent();
+    }
+
+    /**
+     * Enrolls a student into a section WITHOUT checking prerequisites or capacity.
+     * Used by the admin sync flow so planner selections automatically appear
+     * in the Recorded Enrollment History tab.
+     * Does nothing if an enrollment record already exists (any status).
+     */
+    public void adminEnrollStudent(Integer studentId, Integer sectionId) {
+        if (hasEnrollmentRecord(studentId, sectionId)) {
+            return; // already exists — skip to avoid duplicate key
+        }
+
+        Section section = getSectionById(sectionId);
+
+        Student student = new Student();
+        student.setStudentId(studentId);
+
+        Enrollment enrollment = new Enrollment(student, section, EnrollmentStatus.ENROLLED, null);
+        enrollmentRepository.save(enrollment);
+    }
+
+    // ---------------------------------------------------------------
 
     /**
      * Checks the students past courses against the course prerequisites to see if the student is eligible to take the class.
@@ -193,7 +227,6 @@ public class EnrollmentService {
     }
 
     /**
-     *
      * @param sectionId The database ID of the section to check.
      * @return True, if the section is full, otherwise false.
      */

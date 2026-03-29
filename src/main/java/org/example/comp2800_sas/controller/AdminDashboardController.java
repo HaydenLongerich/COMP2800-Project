@@ -1,5 +1,6 @@
 package org.example.comp2800_sas.controller;
 
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
@@ -8,17 +9,25 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import org.example.comp2800_sas.model.PlannerSelection;
+import org.example.comp2800_sas.model.Section;
 import org.example.comp2800_sas.model.Admin;
 import org.example.comp2800_sas.model.Student;
+import org.example.comp2800_sas.repository.PlannerSelectionRepository;
+import org.example.comp2800_sas.repository.SectionRepository;
 import org.example.comp2800_sas.service.EnrollmentCatalogService;
+import org.example.comp2800_sas.service.EnrollmentService;
 import org.example.comp2800_sas.service.SemesterPlannerService;
 import org.example.comp2800_sas.service.SessionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 @Component
 public class AdminDashboardController {
@@ -27,6 +36,9 @@ public class AdminDashboardController {
     @Autowired private SessionService sessionService;
     @Autowired private EnrollmentCatalogService enrollmentCatalogService;
     @Autowired private SemesterPlannerService semesterPlannerService;
+    @Autowired private EnrollmentService enrollmentService;
+    @Autowired private PlannerSelectionRepository plannerSelectionRepository;
+    @Autowired private SectionRepository sectionRepository;
 
     @FXML private Label adminNameLabel;
     @FXML private Label previewStudentLabel;
@@ -47,18 +59,14 @@ public class AdminDashboardController {
 
     private void setActiveButton(Button active) {
         for (Button button : new Button[]{
-                btnStudents,
-                btnEnrollments,
-                btnSections,
-                btnPreviewEnrollment,
-                btnPreviewCalendar
+                btnStudents, btnEnrollments, btnSections,
+                btnPreviewEnrollment, btnPreviewCalendar
         }) {
             button.getStyleClass().removeAll("nav-btn-active");
             if (!button.getStyleClass().contains("nav-btn")) {
                 button.getStyleClass().add("nav-btn");
             }
         }
-
         active.getStyleClass().remove("nav-btn");
         if (!active.getStyleClass().contains("nav-btn-active")) {
             active.getStyleClass().add("nav-btn-active");
@@ -86,20 +94,17 @@ public class AdminDashboardController {
         }
     }
 
-    @FXML
-    public void showStudents() {
+    @FXML public void showStudents() {
         setActiveButton(btnStudents);
         loadScreen("/admin_students.fxml");
     }
 
-    @FXML
-    public void showEnrollments() {
+    @FXML public void showEnrollments() {
         setActiveButton(btnEnrollments);
         loadScreen("/admin_enrollments.fxml");
     }
 
-    @FXML
-    public void showSections() {
+    @FXML public void showSections() {
         setActiveButton(btnSections);
         loadScreen("/admin_sections.fxml");
     }
@@ -114,12 +119,9 @@ public class AdminDashboardController {
             ));
             return;
         }
-
         EnrollmentViewBuilder builder = new EnrollmentViewBuilder(
-                enrollmentCatalogService,
-                semesterPlannerService,
-                this::showPreviewCalendar,
-                () -> {}
+                enrollmentCatalogService, semesterPlannerService,
+                this::showPreviewCalendar, () -> {}
         );
         contentArea.getChildren().setAll(builder.build(enrollmentCatalogService.loadCatalog()));
     }
@@ -134,24 +136,86 @@ public class AdminDashboardController {
             ));
             return;
         }
-
         PlannerViewBuilder builder = new PlannerViewBuilder(
-                enrollmentCatalogService,
-                semesterPlannerService,
-                this::showPreviewEnrollment,
-                () -> {}
+                enrollmentCatalogService, semesterPlannerService,
+                this::showPreviewEnrollment, () -> {}
         );
         contentArea.getChildren().setAll(builder.build(enrollmentCatalogService.loadCatalog()));
     }
 
     public void showPreviewEnrollmentForStudent(Student student) {
         setPreviewStudent(student);
-        showPreviewEnrollment();
+        setActiveButton(btnPreviewEnrollment);
+
+        StackPane spinnerPane = new StackPane();
+        ProgressIndicator spinner = new ProgressIndicator();
+        spinner.setMaxSize(52, 52);
+        spinnerPane.getChildren().add(spinner);
+        contentArea.getChildren().setAll(spinnerPane);
+
+        Task<Void> syncTask = new Task<>() {
+            @Override
+            protected Void call() {
+                doSyncEnrollmentsForStudent(student.getStudentId());
+                return null;
+            }
+        };
+
+        syncTask.setOnSucceeded(e -> {
+            EnrollmentViewBuilder builder = new EnrollmentViewBuilder(
+                    enrollmentCatalogService, semesterPlannerService,
+                    this::showPreviewCalendar, () -> {}
+            );
+            contentArea.getChildren().setAll(builder.build(enrollmentCatalogService.loadCatalog()));
+        });
+
+        syncTask.setOnFailed(e -> {
+            syncTask.getException().printStackTrace();
+            Label err = new Label("Failed to sync enrollments: " + syncTask.getException().getMessage());
+            err.setStyle("-fx-text-fill: #e74c3c; -fx-font-size: 13px;");
+            err.setWrapText(true);
+            VBox errBox = new VBox(err);
+            errBox.setPadding(new Insets(24));
+            contentArea.getChildren().setAll(errBox);
+        });
+
+        Thread t = new Thread(syncTask);
+        t.setDaemon(true);
+        t.start();
     }
 
     public void showPreviewCalendarForStudent(Student student) {
         setPreviewStudent(student);
         showPreviewCalendar();
+    }
+
+    /**
+     * Strips spaces from course codes before lookup so "COMP 1047" matches "COMP1047".
+     */
+    private void doSyncEnrollmentsForStudent(Integer studentId) {
+        List<PlannerSelection> selections =
+                plannerSelectionRepository.findByStudent_StudentIdOrderBySessionNameAscCourseCodeAsc(studentId);
+
+        for (PlannerSelection ps : selections) {
+            // KEY FIX: strip spaces so "COMP 1047" matches "COMP1047" in COURSE table
+            String courseCode = ps.getCourseCode().replace(" ", "");
+            List<Section> sections = sectionRepository.findByCourse_Code(courseCode);
+
+            if (sections.isEmpty()) continue;
+
+            Section target = sections.stream()
+                    .filter(s -> {
+                        try {
+                            return s.getSectionNumber() == Integer.parseInt(ps.getOptionNumber());
+                        } catch (NumberFormatException ex) {
+                            return false;
+                        }
+                    })
+                    .findFirst()
+                    .orElse(sections.get(0));
+
+            enrollmentService.adminEnrollStudent(studentId, target.getSectionId());
+        }
     }
 
     private void setPreviewStudent(Student student) {
@@ -173,10 +237,7 @@ public class AdminDashboardController {
     }
 
     private void updatePreviewStudentLabel() {
-        if (previewStudentLabel == null) {
-            return;
-        }
-
+        if (previewStudentLabel == null) return;
         previewStudentLabel.setText(
                 previewStudent == null
                         ? "Preview: select a student"
