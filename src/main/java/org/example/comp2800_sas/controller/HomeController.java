@@ -1,5 +1,4 @@
 package org.example.comp2800_sas.controller;
-
 import java.util.List;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
@@ -145,25 +144,17 @@ public class HomeController {
         card.setPadding(new Insets(22, 24, 22, 24));
         card.setStyle(SURFACE_CARD_STYLE + "-fx-background-color: linear-gradient(to right, #ffffff, #f6f9fd);");
 
-        Label chip = createBadge("Enrollment + Calendar Hub", "-fx-background-color: #eef4ff; -fx-text-fill: #1c4a86;");
-
         Label title = new Label("Welcome back, " + firstName(snapshot.studentName()) + ".");
         title.setStyle("-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #173b63;");
 
         String sessionLabel = snapshot.primarySession() == null || snapshot.primarySession().isBlank()
                 ? "No active session selected yet"
                 : snapshot.primarySession();
-        Label subtitle = new Label(
-                snapshot.hasPlans()
-                        ? "Your dashboard is now driven by the same catalog and planner data powering Enrollment and Calendar."
-                        : "Start from Enrollment to build a draft calendar. Everything here updates from that same shared data."
-        );
-        subtitle.setWrapText(true);
-        subtitle.setStyle("-fx-font-size: 13px; -fx-text-fill: #607286;");
 
         FlowPane sessionChips = new FlowPane(8, 8);
         if (snapshot.availableSessions().isEmpty()) {
-            sessionChips.getChildren().add(createBadge("Catalog sessions unavailable", "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"));
+            sessionChips.getChildren().add(createBadge("Catalog sessions unavailable",
+                    "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"));
         } else {
             snapshot.availableSessions().forEach(session ->
                     sessionChips.getChildren().add(createBadge(
@@ -177,31 +168,32 @@ public class HomeController {
             );
         }
 
-        Label helper = new Label(
-                snapshot.catalogSummary().openCourses() + " open catalog courses are available right now. " +
-                        "Use Enrollment to add options and Calendar to resolve timing conflicts."
-        );
-        helper.setWrapText(true);
-        helper.setStyle("-fx-font-size: 12px; -fx-text-fill: #607286;");
 
-        VBox textBlock = new VBox(10, chip, title, subtitle, sessionChips, helper);
-        HBox.setHgrow(textBlock, Priority.ALWAYS);
 
-        VBox actionBlock = new VBox(10);
+        VBox textBlock = new VBox(10, title, sessionChips);
+        textBlock.setMaxWidth(800);
+
+        // ---------- RIGHT SIDE (FIXED LAYOUT) ----------
+        VBox actionBlock = new VBox(12);
         actionBlock.setAlignment(Pos.TOP_RIGHT);
+        actionBlock.setPrefWidth(220);
+        actionBlock.setMinWidth(220);
 
         Button enrollmentButton = createActionButton("Open Enrollment", "#f5c518", "#173b63");
+        enrollmentButton.setMaxWidth(Double.MAX_VALUE);
         enrollmentButton.setOnAction(event -> openEnrollmentAction.run());
 
         Button calendarButton = createActionButton("Open Calendar", "#173b63", "white");
+        calendarButton.setMaxWidth(Double.MAX_VALUE);
         calendarButton.setOnAction(event -> openCalendarAction.run());
 
         VBox snapshotCard = new VBox(6);
-        snapshotCard.setPadding(new Insets(14, 18, 14, 18));
+        snapshotCard.setPadding(new Insets(16));
         snapshotCard.setStyle("-fx-background-color: #173b63; -fx-background-radius: 16;");
+        snapshotCard.setMaxWidth(Double.MAX_VALUE);
 
         Label snapshotValue = new Label(String.valueOf(snapshot.totalMeetingBlockCount()));
-        snapshotValue.setStyle("-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #f5c518;");
+        snapshotValue.setStyle("-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: #f5c518;");
 
         Label snapshotText = new Label("Scheduled class blocks");
         snapshotText.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #b6cee6;");
@@ -212,10 +204,16 @@ public class HomeController {
         snapshotSubtext.setStyle("-fx-font-size: 11px; -fx-text-fill: #d7e4f1;");
 
         snapshotCard.getChildren().addAll(snapshotValue, snapshotText, snapshotSubtext);
+
         actionBlock.getChildren().addAll(enrollmentButton, calendarButton, snapshotCard);
 
-        HBox header = new HBox(18, textBlock, actionBlock);
+        // ---------- MAIN LAYOUT FIX ----------
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        HBox header = new HBox(20, textBlock, spacer, actionBlock);
         header.setAlignment(Pos.TOP_LEFT);
+
         card.getChildren().add(header);
         return card;
     }

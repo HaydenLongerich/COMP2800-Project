@@ -156,17 +156,11 @@ public class ReportsController {
         card.setPadding(new Insets(22, 24, 22, 24));
         card.setStyle(SURFACE_CARD_STYLE + "-fx-background-color: linear-gradient(to right, #ffffff, #f6f9fd);");
 
-        Label chip = createBadge("Live Planning Report", "-fx-background-color: #eef4ff; -fx-text-fill: #1c4a86;");
 
         Label title = new Label(snapshot.studentName());
         title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #173b63;");
 
-        String subtitleText = snapshot.hasPlans()
-                ? "This report now reflects the same catalog and planner state used by Enrollment and Calendar."
-                : "No planned courses are in your draft yet. Recorded database enrollments are shown below when available.";
-        Label subtitle = new Label(subtitleText);
-        subtitle.setWrapText(true);
-        subtitle.setStyle("-fx-font-size: 13px; -fx-text-fill: #607286;");
+
 
         FlowPane sessionChips = new FlowPane(8, 8);
         if (snapshot.sessionSummaries().isEmpty()) {
@@ -187,7 +181,7 @@ public class ReportsController {
         calendarButton.setOnAction(event -> openCalendarAction.run());
         actions.getChildren().addAll(enrollmentButton, calendarButton);
 
-        VBox textBlock = new VBox(10, chip, title, subtitle, sessionChips, actions);
+        VBox textBlock = new VBox(10, title, sessionChips, actions);
         HBox.setHgrow(textBlock, Priority.ALWAYS);
 
         VBox metric = new VBox(6);

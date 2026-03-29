@@ -25,21 +25,34 @@
         </VBox>
 
         <!-- RIGHT PANEL -->
-        <VBox styleClass="right-panel" alignment="CENTER" spacing="16" HBox.hgrow="ALWAYS">
+        <VBox styleClass="right-panel" alignment="CENTER" spacing="20" HBox.hgrow="ALWAYS">
             <padding><Insets top="40" bottom="40" left="40" right="40"/></padding>
 
             <!-- Tab toggle -->
-            <HBox spacing="0" alignment="CENTER"
-                  style="-fx-background-color: white; -fx-background-radius: 6;
-                         -fx-border-color: #1a3a5c; -fx-border-radius: 6; -fx-border-width: 1;">
+            <HBox spacing="20" alignment="CENTER" maxWidth="Infinity">
                 <Button fx:id="btnStudentTab" text="Student" onAction="#switchToStudent"
-                        styleClass="tab-btn-active" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                        styleClass="tab-btn-active" maxWidth="Infinity" HBox.hgrow="ALWAYS"
+                        style="-fx-background-radius: 8;
+                   -fx-border-radius: 8;
+                   -fx-border-width: 1.5;
+                   -fx-border-color: #1a3a5c;
+                   -fx-padding: 12 20;
+                   -fx-alignment: CENTER;
+                   -fx-cursor: hand;"/>
+
                 <Button fx:id="btnAdminTab" text="Admin" onAction="#switchToAdmin"
-                        styleClass="tab-btn" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                        styleClass="tab-btn" maxWidth="Infinity" HBox.hgrow="ALWAYS"
+                        style="-fx-background-radius: 8;
+                   -fx-border-radius: 8;
+                   -fx-border-width: 1.5;
+                   -fx-border-color: #d1d1d1;
+                   -fx-padding: 12 20;
+                   -fx-alignment: CENTER;
+                   -fx-cursor: hand;"/>
             </HBox>
 
-            <!-- Student login -->
-            <VBox fx:id="studentPane" spacing="16" maxWidth="Infinity">
+            <!-- Student login section -->
+            <VBox fx:id="studentPane" spacing="16" maxWidth="Infinity" visible="true" managed="true">
                 <Label text="Sign in with your student ID" styleClass="login-sub"/>
                 <VBox spacing="6">
                     <Label text="STUDENT ID" styleClass="field-label"/>
@@ -47,6 +60,14 @@
                                promptText="e.g. 1"
                                styleClass="text-field"/>
                 </VBox>
+
+                <VBox spacing="6">
+                    <Label text="PASSWORD" styleClass="field-label"/>
+                    <PasswordField fx:id="studentPasswordField"
+                                   promptText="Enter password"
+                                   styleClass="text-field"/>
+                </VBox>
+
                 <Button fx:id="loginButton"
                         text="Sign In"
                         styleClass="login-btn"
@@ -54,7 +75,7 @@
                         maxWidth="Infinity"/>
             </VBox>
 
-            <!-- Admin login -->
+            <!-- Admin login section (hidden by default) -->
             <VBox fx:id="adminPane" spacing="16" maxWidth="Infinity" visible="false" managed="false">
                 <Label text="Sign in with admin credentials" styleClass="login-sub"/>
                 <VBox spacing="6">
@@ -63,12 +84,14 @@
                                promptText="Username"
                                styleClass="text-field"/>
                 </VBox>
+
                 <VBox spacing="6">
                     <Label text="PASSWORD" styleClass="field-label"/>
                     <PasswordField fx:id="adminPasswordField"
                                    promptText="Password"
                                    styleClass="text-field"/>
                 </VBox>
+
                 <Button fx:id="adminLoginButton"
                         text="Sign In"
                         styleClass="login-btn"

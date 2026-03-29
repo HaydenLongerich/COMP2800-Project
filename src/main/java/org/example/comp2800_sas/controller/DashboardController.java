@@ -1,15 +1,16 @@
 package org.example.comp2800_sas.controller;
 
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
-import org.example.comp2800_sas.controller.EnrollmentViewBuilder;
-import org.example.comp2800_sas.controller.PlannerViewBuilder;
+import org.example.comp2800_sas.model.EnrollmentCatalogData;
 import org.example.comp2800_sas.model.Student;
 import org.example.comp2800_sas.service.EnrollmentCatalogService;
 import org.example.comp2800_sas.service.SemesterPlannerService;
@@ -36,6 +37,8 @@ public class DashboardController {
     @FXML private Button btnAdvisors;
     @FXML private Button btnReports;
 
+    private String currentView = "";
+
     public void setStudent(Student student) {
         sessionService.setCurrentStudent(student);
         semesterPlannerService.setCurrentStudent(student.getStudentId());
@@ -58,13 +61,20 @@ public class DashboardController {
 
     private void loadScreen(String fxml) {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource(fxml));
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getClassLoader().getResource(fxml)
+            );
+
             loader.setControllerFactory(applicationContext::getBean);
             Parent screen = loader.load();
+
             configureScreenNavigation(loader.getController());
+
             contentArea.getChildren().setAll(screen);
+
         } catch (Exception e) {
             e.printStackTrace();
+            showError("Failed to load screen: " + fxml);
         }
     }
 
@@ -80,44 +90,156 @@ public class DashboardController {
         }
     }
 
-    @FXML public void showHome()       { setActiveButton(btnHome);       loadScreen("/home.fxml");      }
-    @FXML public void showCourses()    { setActiveButton(btnCourses);    loadScreen("/courses.fxml");   }
-    @FXML public void showEnrollment() { setActiveButton(btnEnrollment); showEnrollmentScreen();          }
-    @FXML public void showPlanner()    { setActiveButton(btnPlanner);    showPlannerScreen();             }
-    @FXML public void showAdvisors()   { setActiveButton(btnAdvisors);   loadScreen("/faculty.fxml");   }
-    @FXML public void showReports()    { setActiveButton(btnReports);    loadScreen("/reports.fxml");   }
+    // ---------------- NAVIGATION ----------------
+
+    @FXML
+    public void showHome() {
+        currentView = "home";
+        setActiveButton(btnHome);
+        loadScreen("home.fxml");
+    }
+
+    @FXML
+    public void showCourses() {
+        currentView = "courses";
+        setActiveButton(btnCourses);
+        loadScreen("courses.fxml");
+    }
+
+    @FXML
+    public void showEnrollment() {
+        currentView = "enrollment";
+        setActiveButton(btnEnrollment);
+        showEnrollmentScreen();
+    }
+
+    @FXML
+    public void showPlanner() {
+        currentView = "planner";
+        setActiveButton(btnPlanner);
+        showPlannerScreen();
+    }
+
+    @FXML
+    public void showAdvisors() {
+        currentView = "advisors";
+        setActiveButton(btnAdvisors);
+        loadScreen("faculty.fxml");
+    }
+
+    @FXML
+    public void showReports() {
+        currentView = "reports";
+        setActiveButton(btnReports);
+        loadScreen("reports.fxml");
+    }
+
+    // ---------------- ENROLLMENT ----------------
 
     private void showEnrollmentScreen() {
-        EnrollmentViewBuilder builder = new EnrollmentViewBuilder(
-                enrollmentCatalogService,
-                semesterPlannerService,
-                this::showPlanner,
-                () -> {}
-        );
-        contentArea.getChildren().setAll(builder.build(enrollmentCatalogService.loadCatalog()));
+        showSpinner();
+
+        Task<Parent> task = new Task<>() {
+            @Override
+            protected Parent call() {
+                EnrollmentCatalogData catalog = enrollmentCatalogService.loadCatalog();
+
+                EnrollmentViewBuilder builder = new EnrollmentViewBuilder(
+                        enrollmentCatalogService,
+                        semesterPlannerService,
+                        DashboardController.this::showPlanner,
+                        () -> {}
+                );
+
+                return builder.build(catalog);
+            }
+        };
+
+        task.setOnSucceeded(event -> {
+            if (!"enrollment".equals(currentView)) return;
+            contentArea.getChildren().setAll(task.getValue());
+        });
+
+        task.setOnFailed(event -> {
+            task.getException().printStackTrace();
+            showError("Failed to load enrollment catalog.");
+        });
+
+        new Thread(task).start();
     }
 
+    // ---------------- PLANNER ----------------
+
     private void showPlannerScreen() {
-        PlannerViewBuilder builder = new PlannerViewBuilder(
-                enrollmentCatalogService,
-                semesterPlannerService,
-                this::showEnrollment,
-                () -> {}
-        );
-        contentArea.getChildren().setAll(builder.build(enrollmentCatalogService.loadCatalog()));
+        showSpinner();
+
+        Task<Parent> task = new Task<>() {
+            @Override
+            protected Parent call() {
+                EnrollmentCatalogData catalog = enrollmentCatalogService.loadCatalog();
+
+                PlannerViewBuilder builder = new PlannerViewBuilder(
+                        enrollmentCatalogService,
+                        semesterPlannerService,
+                        DashboardController.this::showEnrollment,
+                        () -> {}
+                );
+
+                return builder.build(catalog);
+            }
+        };
+
+        task.setOnSucceeded(event -> {
+            if (!"planner".equals(currentView)) return;
+            contentArea.getChildren().setAll(task.getValue());
+        });
+
+        task.setOnFailed(event -> {
+            task.getException().printStackTrace();
+            showError("Failed to load semester calendar.");
+        });
+
+        new Thread(task).start();
     }
+
+    // ---------------- UI HELPERS ----------------
+
+    private void showSpinner() {
+        ProgressIndicator spinner = new ProgressIndicator();
+        spinner.setMaxSize(52, 52);
+
+        StackPane spinnerPane = new StackPane(spinner);
+        spinnerPane.setMinSize(0, 0);
+        spinnerPane.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+
+        contentArea.getChildren().setAll(spinnerPane);
+    }
+
+    private void showError(String message) {
+        Label error = new Label(message);
+        error.setStyle("-fx-text-fill: #b94141; -fx-font-size: 13px; -fx-font-weight: bold;");
+        contentArea.getChildren().setAll(new StackPane(error));
+    }
+
+    // ---------------- LOGOUT ----------------
 
     @FXML
     public void handleLogout() {
         try {
             sessionService.clearCurrentStudent();
             semesterPlannerService.clearCurrentStudent();
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/login.fxml"));
+
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getClassLoader().getResource("login.fxml")
+            );
+
             loader.setControllerFactory(applicationContext::getBean);
             Parent root = loader.load();
+
             Stage stage = (Stage) contentArea.getScene().getWindow();
             stage.setScene(new Scene(root, 560, 480));
             stage.setResizable(false);
+
         } catch (Exception e) {
             e.printStackTrace();
         }

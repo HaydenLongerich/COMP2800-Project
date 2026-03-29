@@ -81,7 +81,7 @@ public class CoursesController {
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #173b63;");
 
         Label subtitle = new Label(
-                "Browse academic course descriptions and prerequisite requirements. Enrollment remains the separate page for offerings, sections, and scheduling."
+                ""
         );
         subtitle.setWrapText(true);
         subtitle.setStyle("-fx-font-size: 12px; -fx-text-fill: #607286;");

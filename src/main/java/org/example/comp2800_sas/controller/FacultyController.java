@@ -93,9 +93,6 @@ public class FacultyController {
         Label title = new Label("Advisors and Teaching Contacts");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #1a3a5c;");
 
-        Label subtitle = new Label("Advisor-facing teaching contacts and section details now come directly from the shared Enrollment and Calendar catalog.");
-        subtitle.setStyle("-fx-font-size: 13px; -fx-text-fill: #607286;");
-        subtitle.setWrapText(true);
 
         Button enrollmentButton = createActionButton("Open Enrollment", "#f5c518", "#1a3a5c");
         enrollmentButton.setOnAction(event -> openEnrollmentAction.run());
@@ -106,7 +103,7 @@ public class FacultyController {
         HBox actionRow = new HBox(10, enrollmentButton, calendarButton);
         actionRow.setAlignment(Pos.CENTER_RIGHT);
 
-        VBox headerBox = new VBox(4, title, subtitle);
+        VBox headerBox = new VBox(4, title);
         HBox headerRow = new HBox(16);
         headerRow.setAlignment(Pos.CENTER_LEFT);
         HBox headerSpacer = new HBox();

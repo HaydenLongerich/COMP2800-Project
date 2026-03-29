@@ -47,14 +47,17 @@ public class PlannerViewBuilder {
             "-fx-background-color: #f8fbff; -fx-background-radius: 10; -fx-border-radius: 10; " +
                     "-fx-border-color: #cad7e5; -fx-padding: 10 12; -fx-font-size: 12px;";
     private static final List<String> WEEKDAY_HEADERS = List.of("Monday", "Tuesday", "Wednesday", "Thursday", "Friday");
-    private static final int DAY_START_MINUTES = 8 * 60;
-    private static final int DAY_END_MINUTES = 21 * 60;
-    private static final int HOUR_HEIGHT = 56;
+    private static final int DAY_START_MINUTES    = 8 * 60;
+    private static final int DAY_END_MINUTES      = 21 * 60;
+    private static final int HOUR_HEIGHT          = 56;
     private static final double PIXELS_PER_MINUTE = HOUR_HEIGHT / 60.0;
-    private static final double TIME_COLUMN_WIDTH = 74;
-    private static final double DAY_COLUMN_WIDTH = 156;
-    private static final double EVENT_INSET = 6;
+    private static final double TIME_COLUMN_WIDTH  = 74;
+    private static final double DAY_COLUMN_WIDTH   = 156;
+    private static final double EVENT_INSET        = 6;
     private static final DateTimeFormatter TIME_LABEL_FORMATTER = DateTimeFormatter.ofPattern("h:mm a");
+
+    // ── Quick Add cap ────────────────────────────────────────────────────────
+    private static final int QUICK_ADD_CAP = 30;
 
     private final EnrollmentCatalogService catalogService;
     private final SemesterPlannerService plannerService;
@@ -115,9 +118,7 @@ public class PlannerViewBuilder {
         wrapper.getChildren().add(hero);
 
         List<String> sessions = new ArrayList<>(catalog.sessions());
-        if (sessions.isEmpty()) {
-            sessions.add("Unscheduled");
-        }
+        if (sessions.isEmpty()) sessions.add("Unscheduled");
 
         ComboBox<String> sessionSelector = new ComboBox<>(FXCollections.observableArrayList(sessions));
         sessionSelector.setStyle(FIELD_STYLE);
@@ -159,7 +160,7 @@ public class PlannerViewBuilder {
         wrapper.getChildren().add(feedbackHost);
 
         String[] feedbackMessage = new String[1];
-        String[] feedbackTone = new String[]{"info"};
+        String[] feedbackTone    = new String[]{"info"};
 
         HBox mainSplit = new HBox(18);
         VBox.setVgrow(mainSplit, Priority.ALWAYS);
@@ -173,7 +174,7 @@ public class PlannerViewBuilder {
 
         Label plannedCountValue = new Label();
         Label plannedUnitsValue = new Label();
-        Label conflictValue = new Label();
+        Label conflictValue     = new Label();
 
         FlowPane stats = new FlowPane(14, 14);
         stats.getChildren().addAll(
@@ -190,7 +191,7 @@ public class PlannerViewBuilder {
         renderRef[0] = () -> {
             String session = sessionSelector.getValue();
             List<PlannedCourseOption> plannedOptions = plannerService.getPlanForSession(session);
-            List<PlannerConflict> conflicts = plannerService.getConflictsForSession(session);
+            List<PlannerConflict> conflicts          = plannerService.getConflictsForSession(session);
 
             plannedCountValue.setText(String.valueOf(plannerService.getPlannedCountForSession(session)));
             plannedUnitsValue.setText(formatUnits(plannerService.getTotalUnitsForSession(session)));
@@ -212,7 +213,7 @@ public class PlannerViewBuilder {
                             plannedOptions,
                             (message, tone) -> {
                                 feedbackMessage[0] = message;
-                                feedbackTone[0] = tone;
+                                feedbackTone[0]    = tone;
                             },
                             renderRef[0]
                     ),
@@ -225,18 +226,18 @@ public class PlannerViewBuilder {
                             deliveryFilter.getValue(),
                             (message, tone) -> {
                                 feedbackMessage[0] = message;
-                                feedbackTone[0] = tone;
+                                feedbackTone[0]    = tone;
                             },
                             renderRef[0]
                     )
             );
         };
 
-        sessionSelector.valueProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
-        quickSearch.textProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
-        statusFilter.valueProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
-        componentFilter.valueProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
-        deliveryFilter.valueProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
+        sessionSelector.valueProperty().addListener((obs, o, n) -> renderRef[0].run());
+        quickSearch.textProperty().addListener((obs, o, n) -> renderRef[0].run());
+        statusFilter.valueProperty().addListener((obs, o, n) -> renderRef[0].run());
+        componentFilter.valueProperty().addListener((obs, o, n) -> renderRef[0].run());
+        deliveryFilter.valueProperty().addListener((obs, o, n) -> renderRef[0].run());
 
         renderRef[0].run();
         pageScroll.setContent(wrapper);
@@ -416,7 +417,25 @@ public class PlannerViewBuilder {
             empty.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px;");
             results.getChildren().add(empty);
         } else {
-            for (EnrollmentCatalogCourse course : filteredCourses) {
+            // ── Cap results to keep the FX thread free ────────────────────
+            List<EnrollmentCatalogCourse> cappedCourses = filteredCourses.stream()
+                    .limit(QUICK_ADD_CAP)
+                    .toList();
+
+            if (filteredCourses.size() > QUICK_ADD_CAP) {
+                Label cap = new Label(
+                        "Showing " + QUICK_ADD_CAP + " of " + filteredCourses.size()
+                                + " matches — use the search box to narrow results."
+                );
+                cap.setWrapText(true);
+                cap.setStyle(
+                        "-fx-text-fill: #607286; -fx-font-size: 12px; -fx-font-weight: bold; " +
+                                "-fx-background-color: #eef4fb; -fx-background-radius: 10; -fx-padding: 8 12;"
+                );
+                results.getChildren().add(cap);
+            }
+
+            for (EnrollmentCatalogCourse course : cappedCourses) {
                 VBox item = new VBox(8);
                 item.setPadding(new Insets(12, 12, 12, 12));
                 item.setStyle(
@@ -437,7 +456,7 @@ public class PlannerViewBuilder {
                         continue;
                     }
 
-                    boolean planned = plannerService.isOptionPlanned(session, course.courseCode(), option.optionNumber());
+                    boolean planned            = plannerService.isOptionPlanned(session, course.courseCode(), option.optionNumber());
                     boolean courseAlreadyPlanned = plannerService.hasCoursePlannedInSession(session, course.courseCode());
                     HBox row = new HBox(8);
                     row.setAlignment(Pos.CENTER_LEFT);
@@ -458,7 +477,10 @@ public class PlannerViewBuilder {
                     HBox.setHgrow(rowSpacer, Priority.ALWAYS);
 
                     Button addButton = createActionButton(
-                            option.sections().isEmpty() ? "No Sections" : planned ? "Already Added" : courseAlreadyPlanned ? "Replace in Calendar" : "Add to Calendar",
+                            option.sections().isEmpty() ? "No Sections"
+                                    : planned ? "Already Added"
+                                    : courseAlreadyPlanned ? "Replace in Calendar"
+                                    : "Add to Calendar",
                             planned
                                     ? "-fx-background-color: #dbe6f3; -fx-text-fill: #5d7087;"
                                     : "-fx-background-color: #173b63; -fx-text-fill: white;"
@@ -505,7 +527,7 @@ public class PlannerViewBuilder {
                             "-fx-border-color: #d7eadc;"
             );
 
-            Label title = new Label("No conflicts detected");
+            Label title  = new Label("No conflicts detected");
             title.setStyle("-fx-text-fill: #246344; -fx-font-size: 15px; -fx-font-weight: bold;");
 
             Label detail = new Label("Your current calendar items fit together in the weekly grid.");
@@ -521,7 +543,7 @@ public class PlannerViewBuilder {
                         "-fx-border-color: #f0c8bf;"
         );
 
-        Label title = new Label("Calendar Conflicts");
+        Label title  = new Label("Calendar Conflicts");
         title.setStyle("-fx-text-fill: #9f3030; -fx-font-size: 15px; -fx-font-weight: bold;");
 
         Label detail = new Label("Remove or replace one of the overlapping options below.");
@@ -555,7 +577,7 @@ public class PlannerViewBuilder {
         card.setPadding(new Insets(18, 18, 18, 18));
         card.setStyle(SURFACE_CARD_STYLE);
 
-        Label title = new Label("Weekly Calendar");
+        Label title  = new Label("Weekly Calendar");
         title.setStyle("-fx-text-fill: #173b63; -fx-font-size: 16px; -fx-font-weight: bold;");
 
         Label helper = new Label("Selected options appear in a timetable view for " + session + ".");
@@ -644,9 +666,7 @@ public class PlannerViewBuilder {
 
         for (PlannedCourseOption option : plannedOptions) {
             for (PlannerMeetingBlock block : option.meetingBlocks()) {
-                if (!WEEKDAY_HEADERS.contains(block.dayLabel())) {
-                    continue;
-                }
+                if (!WEEKDAY_HEADERS.contains(block.dayLabel())) continue;
                 int dayIndex = WEEKDAY_HEADERS.indexOf(block.dayLabel());
                 Pane dayPane = dayPanes.get(dayIndex);
                 dayPane.getChildren().add(createCalendarBlock(
@@ -738,7 +758,6 @@ public class PlannerViewBuilder {
                 deliveryModes.add(PlannerScheduleUtils.summarizeDeliveryMode(option.sections()));
             }
         }
-
         List<String> filters = new ArrayList<>();
         filters.add("All Delivery");
         filters.addAll(deliveryModes.stream().sorted().toList());
@@ -763,9 +782,9 @@ public class PlannerViewBuilder {
 
     private VBox createCalendarBlock(Pane dayPane, PlannerMeetingBlock block, boolean conflict) {
         VBox event = new VBox(2);
-        double topOffset = minutesToOffset(block.startMinutes());
+        double topOffset  = minutesToOffset(block.startMinutes());
         double blockHeight = Math.max(durationToPixels(block.durationMinutes()), 48);
-        double maxHeight = Math.max(dayPane.getPrefHeight() - topOffset - EVENT_INSET, 48);
+        double maxHeight   = Math.max(dayPane.getPrefHeight() - topOffset - EVENT_INSET, 48);
 
         event.setLayoutX(EVENT_INSET);
         event.setLayoutY(topOffset);
@@ -783,7 +802,9 @@ public class PlannerViewBuilder {
         section.setWrapText(true);
         section.setStyle("-fx-text-fill: rgba(255,255,255,0.92); -fx-font-size: 10px;");
 
-        Label time = new Label(block.startTime().format(TIME_LABEL_FORMATTER) + " - " + block.endTime().format(TIME_LABEL_FORMATTER));
+        Label time = new Label(
+                block.startTime().format(TIME_LABEL_FORMATTER) + " - " + block.endTime().format(TIME_LABEL_FORMATTER)
+        );
         time.setWrapText(true);
         time.setStyle("-fx-text-fill: rgba(255,255,255,0.92); -fx-font-size: 10px;");
 
@@ -796,7 +817,6 @@ public class PlannerViewBuilder {
             return "-fx-background-color: linear-gradient(to bottom, #d95c5c, #b94141); " +
                     "-fx-background-radius: 12; -fx-border-radius: 12; -fx-border-color: #992a2a;";
         }
-
         return switch (Math.abs(courseCode.hashCode()) % 4) {
             case 0 -> "-fx-background-color: linear-gradient(to bottom, #173b63, #1f517e); " +
                     "-fx-background-radius: 12; -fx-border-radius: 12;";
@@ -819,10 +839,10 @@ public class PlannerViewBuilder {
 
     private String deliveryBadgeStyle(String deliveryMode) {
         return switch (deliveryMode) {
-            case "Online" -> "-fx-background-color: #dff3ff; -fx-text-fill: #1c5f93;";
-            case "Hybrid" -> "-fx-background-color: #efe8ff; -fx-text-fill: #5b48a2;";
+            case "Online"    -> "-fx-background-color: #dff3ff; -fx-text-fill: #1c5f93;";
+            case "Hybrid"    -> "-fx-background-color: #efe8ff; -fx-text-fill: #5b48a2;";
             case "In Person" -> "-fx-background-color: #e7f5ea; -fx-text-fill: #246344;";
-            default -> "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;";
+            default          -> "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;";
         };
     }
 
@@ -832,40 +852,32 @@ public class PlannerViewBuilder {
         parts.add(catalogService.formatComponents(option.components()));
         parts.add("Sections: " + option.sections().stream()
                 .map(section -> section.sectionType() + " " + section.section())
-                .reduce((left, right) -> left + ", " + right)
+                .reduce((l, r) -> l + ", " + r)
                 .orElse("TBA"));
         return String.join("  |  ", parts);
     }
 
     private boolean matchesPlannerQuery(EnrollmentCatalogCourse course, String query) {
         String normalizedQuery = normalize(query);
-        if (normalizedQuery.isBlank()) {
-            return true;
-        }
+        if (normalizedQuery.isBlank()) return true;
         return normalize(course.courseCode()).contains(normalizedQuery)
                 || normalize(course.courseName()).contains(normalizedQuery);
     }
 
     private boolean matchesPlannerComponent(EnrollmentCatalogCourse course, String componentFilter) {
-        if (componentFilter == null || "All Components".equals(componentFilter)) {
-            return true;
-        }
+        if (componentFilter == null || "All Components".equals(componentFilter)) return true;
         return componentFilter.equalsIgnoreCase(catalogService.formatComponents(course.components()));
     }
 
     private boolean matchesPlannerDelivery(EnrollmentCatalogCourse course, String deliveryFilter) {
-        if (deliveryFilter == null || "All Delivery".equals(deliveryFilter)) {
-            return true;
-        }
+        if (deliveryFilter == null || "All Delivery".equals(deliveryFilter)) return true;
         return course.options().stream().anyMatch(option ->
                 deliveryFilter.equalsIgnoreCase(PlannerScheduleUtils.summarizeDeliveryMode(option.sections()))
         );
     }
 
     private boolean matchesPlannerStatus(EnrollmentCatalogOption option, String statusFilter) {
-        if (statusFilter == null || "All Statuses".equals(statusFilter)) {
-            return true;
-        }
+        if (statusFilter == null || "All Statuses".equals(statusFilter)) return true;
         return statusFilter.equalsIgnoreCase(option.status() == null ? "" : option.status());
     }
 
@@ -891,17 +903,14 @@ public class PlannerViewBuilder {
     private String buildAddFeedbackMessage(PlannerSelectionResult result) {
         String optionLabel = result.plannedOption().courseCode() + " option " + result.plannedOption().optionNumber();
 
-        if (result.status() == PlannerSelectionStatus.DUPLICATE) {
+        if (result.status() == PlannerSelectionStatus.DUPLICATE)
             return "This option has already been added to your calendar.";
-        }
 
         String baseMessage = result.status() == PlannerSelectionStatus.REPLACED
                 ? "Updated your calendar to use " + optionLabel + "."
                 : "Added " + optionLabel + " to your calendar.";
 
-        if (!result.hasConflicts()) {
-            return baseMessage;
-        }
+        if (!result.hasConflicts()) return baseMessage;
 
         PlannerConflict firstConflict = result.conflicts().get(0);
         PlannerMeetingBlock otherBlock = otherConflictBlock(result, firstConflict);
@@ -917,7 +926,6 @@ public class PlannerViewBuilder {
             detail += " " + (conflictingCourses.size() - 1) + " more overlapping course"
                     + (conflictingCourses.size() - 1 == 1 ? "" : "s") + " remain in this calendar.";
         }
-
         return baseMessage + detail;
     }
 
@@ -928,9 +936,7 @@ public class PlannerViewBuilder {
     }
 
     private String feedbackTone(PlannerSelectionResult result) {
-        if (result.status() == PlannerSelectionStatus.DUPLICATE) {
-            return "info";
-        }
+        if (result.status() == PlannerSelectionStatus.DUPLICATE) return "info";
         return result.hasConflicts() ? "warning" : "success";
     }
 
@@ -940,7 +946,7 @@ public class PlannerViewBuilder {
                     "-fx-border-radius: 14; -fx-border-color: #f0c8bf;";
             case "success" -> "-fx-background-color: #f5fbf7; -fx-background-radius: 14; " +
                     "-fx-border-radius: 14; -fx-border-color: #d7eadc;";
-            default -> "-fx-background-color: #eef4fb; -fx-background-radius: 14; " +
+            default        -> "-fx-background-color: #eef4fb; -fx-background-radius: 14; " +
                     "-fx-border-radius: 14; -fx-border-color: #d9e3ef;";
         };
     }
@@ -949,7 +955,7 @@ public class PlannerViewBuilder {
         return switch (tone) {
             case "warning" -> "#7f4a4a";
             case "success" -> "#246344";
-            default -> "#31506f";
+            default        -> "#31506f";
         };
     }
 

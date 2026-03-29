@@ -130,6 +130,14 @@ public class AdminStudentsController {
         formRow.setAlignment(Pos.CENTER_LEFT);
 
         TextField nameField = new TextField();
+        TextField passwordField = new TextField();
+        passwordField.setPromptText("Enter password...");
+        passwordField.setPrefWidth(180);
+        passwordField.setStyle(
+                "-fx-background-radius: 6; -fx-border-radius: 6; " +
+                        "-fx-border-color: #cfd8dc; -fx-padding: 8 12; -fx-font-size: 13px;"
+        );
+
         nameField.setPromptText("Enter full name...");
         nameField.setPrefWidth(280);
         nameField.setStyle(
@@ -151,14 +159,27 @@ public class AdminStudentsController {
 
         addBtn.setOnAction(event -> {
             String name = clean(nameField.getText());
+            String password = clean(passwordField.getText());
+
             if (name.isBlank()) {
                 feedbackLabel.setText("Please enter a student name before saving.");
                 feedbackLabel.setStyle("-fx-text-fill: #b94141; -fx-font-size: 12px;");
                 return;
             }
 
+            if (password.isBlank()) {
+                feedbackLabel.setText("Please enter a password before saving.");
+                feedbackLabel.setStyle("-fx-text-fill: #b94141; -fx-font-size: 12px;");
+                return;
+            }
+
             try {
                 studentRepository.save(new Student(name));
+
+                // clear fields after success
+                nameField.clear();
+                passwordField.clear();
+
                 loadStudents("Student '" + name + "' was added to the shared student roster.", true);
             } catch (Exception exception) {
                 feedbackLabel.setText("Failed to add the student.");
@@ -166,7 +187,7 @@ public class AdminStudentsController {
             }
         });
 
-        formRow.getChildren().addAll(nameField, addBtn, feedbackLabel);
+        formRow.getChildren().addAll(nameField, passwordField, addBtn, feedbackLabel);
         addCard.getChildren().addAll(addTitle, formRow);
 
         HBox headerRow = new HBox(12);
@@ -195,13 +216,15 @@ public class AdminStudentsController {
         colHeader.setStyle("-fx-background-color: #eef2ff; -fx-background-radius: 8 8 0 0;");
         colHeader.getChildren().addAll(
                 col("ID", 70),
-                col("NAME", 220),
+                col("NAME", 180),
+                col("PASSWORD", 140),
                 col("PLANNED", 110),
                 col("UNITS", 90),
                 col("SESSIONS", 90),
                 col("CONFLICTS", 90),
                 col("ENROLLMENT", 130),
-                col("CALENDAR", 130)
+                col("CALENDAR", 130),
+                col("REMOVE", 110)
         );
         card.getChildren().add(colHeader);
 
@@ -229,7 +252,9 @@ public class AdminStudentsController {
                 );
 
                 Label idLabel = value(String.valueOf(student.getStudentId()), 70, false, "#888");
-                Label nameLabel = value(student.getName(), 220, true, "#1a3a5c");
+                Label nameLabel = value(student.getName(), 180, true, "#1a3a5c");
+
+                Label passwordLabel = value(generateFPassword(), 140, false, "#888");
                 Label plannedLabel = value(snapshot.totalPlannedCourseCount() + " course" +
                         (snapshot.totalPlannedCourseCount() == 1 ? "" : "s"), 110, false, "#246344");
                 Label unitsLabel = value(formatUnits(snapshot.totalUnits()), 90, false, "#31506f");
@@ -248,16 +273,42 @@ public class AdminStudentsController {
                 Button calendarButton = createActionButton("Open Calendar", "#1a3a5c", "white");
                 calendarButton.setPrefWidth(130);
                 calendarButton.setOnAction(event -> openPreviewCalendarAction.accept(student));
+                Button removeButton = createActionButton("Remove", "#b94141", "white");
+                removeButton.setPrefWidth(110);
+
+                removeButton.setOnAction(event -> {
+                    javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
+                            javafx.scene.control.Alert.AlertType.CONFIRMATION
+                    );
+                    alert.setTitle("Confirm Removal");
+                    alert.setHeaderText("Remove Student");
+                    alert.setContentText("Are you sure you want to remove '" + student.getName() + "'?");
+
+                    alert.showAndWait().ifPresent(response -> {
+                        if (response == javafx.scene.control.ButtonType.OK) {
+                            try {
+                                Student s = studentRepository.findById(student.getStudentId()).orElse(null);
+
+                                studentRepository.delete(student);
+                                loadStudents("Student '" + student.getName() + "' was removed.", true);
+                            } catch (Exception ex) {
+                                loadStudents("Failed to remove student.", false);
+                            }
+                        }
+                    });
+                });
 
                 row.getChildren().addAll(
                         idLabel,
                         nameLabel,
+                        passwordLabel,
                         plannedLabel,
                         unitsLabel,
                         sessionsLabel,
                         conflictsLabel,
                         enrollmentButton,
-                        calendarButton
+                        calendarButton,
+                        removeButton
                 );
                 rowsBox.getChildren().add(row);
                 rowIndex++;
@@ -304,7 +355,10 @@ public class AdminStudentsController {
                 0
         );
     }
-
+    private String generateFPassword() {
+        int length = 6 + (int)(Math.random() * 5); // 6–10 chars
+        return "•".repeat(length);
+    }
     private boolean matchesFilter(Student student, StudentDashboardSnapshot snapshot, String filter) {
         if (filter.isBlank()) {
             return true;

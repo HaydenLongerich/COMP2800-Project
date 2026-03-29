@@ -59,6 +59,9 @@ public class EnrollmentViewBuilder {
             "-fx-background-color: #f8fbff; -fx-background-radius: 10; -fx-border-radius: 10; " +
                     "-fx-border-color: #cad7e5; -fx-padding: 10 12; -fx-font-size: 12px;";
 
+    // ── Pagination ──────────────────────────────────────────────────────────
+    private static final int PAGE_SIZE = 20;
+
     private final EnrollmentCatalogService catalogService;
     private final SemesterPlannerService plannerService;
     private final Runnable openPlannerPage;
@@ -112,9 +115,13 @@ public class EnrollmentViewBuilder {
                 SORT_CODE_ASC
         );
 
+        // ── Page state (shared across renders) ────────────────────────────
+        int[] currentPage = {0};
+
         Button clearFilters = createActionButton("Clear Filters",
                 "-fx-background-color: #eef4fb; -fx-text-fill: #173b63;");
         clearFilters.setOnAction(e -> {
+            currentPage[0] = 0;
             codeSearch.clear();
             titleSearch.clear();
             statusFilter.setValue(ALL_STATUSES);
@@ -201,8 +208,9 @@ public class EnrollmentViewBuilder {
                     .toList();
 
             resultsSummary.setText(
-                    "Showing " + filteredCourses.size() + " of " + catalog.summary().totalCourses()
-                            + " courses. Sort: " + sortFilter.getValue()
+                    "Showing " + Math.min((currentPage[0] + 1) * PAGE_SIZE, filteredCourses.size())
+                            + " of " + filteredCourses.size()
+                            + " matches (" + catalog.summary().totalCourses() + " total). Sort: " + sortFilter.getValue()
             );
 
             updatePlannerSnapshot(plannedCountValue, plannedSessionValue, conflictValue);
@@ -249,6 +257,7 @@ public class EnrollmentViewBuilder {
             activeFilters.setVisible(!chips.isEmpty());
             activeFilters.setManaged(!chips.isEmpty());
 
+            // ── Paginated rendering ────────────────────────────────────────
             courseList.getChildren().clear();
 
             if (filteredCourses.isEmpty()) {
@@ -256,7 +265,10 @@ public class EnrollmentViewBuilder {
                 return;
             }
 
-            for (EnrollmentCatalogCourse course : filteredCourses) {
+            int endIndex = Math.min((currentPage[0] + 1) * PAGE_SIZE, filteredCourses.size());
+            List<EnrollmentCatalogCourse> pageSlice = filteredCourses.subList(0, endIndex);
+
+            for (EnrollmentCatalogCourse course : pageSlice) {
                 courseList.getChildren().add(createCourseCard(
                         course,
                         (message, tone) -> {
@@ -266,6 +278,20 @@ public class EnrollmentViewBuilder {
                         renderRef[0]
                 ));
             }
+
+            if (endIndex < filteredCourses.size()) {
+                int remaining = filteredCourses.size() - endIndex;
+                Button loadMore = createActionButton(
+                        "Load " + Math.min(PAGE_SIZE, remaining) + " more  (" + remaining + " remaining)",
+                        "-fx-background-color: #eef4fb; -fx-text-fill: #173b63;"
+                );
+                loadMore.setMaxWidth(Double.MAX_VALUE);
+                loadMore.setOnAction(e -> {
+                    currentPage[0]++;
+                    renderRef[0].run();
+                });
+                courseList.getChildren().add(loadMore);
+            }
         };
 
         filterToggle.setOnAction(e -> {
@@ -274,13 +300,14 @@ public class EnrollmentViewBuilder {
             filterPanel.setManaged(!open);
         });
 
-        codeSearch.textProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
-        titleSearch.textProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
-        statusFilter.valueProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
-        sessionFilter.valueProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
-        componentFilter.valueProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
-        deliveryFilter.valueProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
-        sortFilter.valueProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
+        // ── Listeners reset to page 0 before re-rendering ────────────────
+        codeSearch.textProperty().addListener((obs, o, n) -> { currentPage[0] = 0; renderRef[0].run(); });
+        titleSearch.textProperty().addListener((obs, o, n) -> { currentPage[0] = 0; renderRef[0].run(); });
+        statusFilter.valueProperty().addListener((obs, o, n) -> { currentPage[0] = 0; renderRef[0].run(); });
+        sessionFilter.valueProperty().addListener((obs, o, n) -> { currentPage[0] = 0; renderRef[0].run(); });
+        componentFilter.valueProperty().addListener((obs, o, n) -> { currentPage[0] = 0; renderRef[0].run(); });
+        deliveryFilter.valueProperty().addListener((obs, o, n) -> { currentPage[0] = 0; renderRef[0].run(); });
+        sortFilter.valueProperty().addListener((obs, o, n) -> { currentPage[0] = 0; renderRef[0].run(); });
 
         renderRef[0].run();
 
@@ -300,8 +327,6 @@ public class EnrollmentViewBuilder {
         introCard.setPadding(new Insets(22, 24, 22, 24));
         introCard.setStyle(SURFACE_CARD_STYLE + "-fx-background-color: linear-gradient(to right, #ffffff, #f6f9fd);");
 
-        Label phaseChip = createBadge("Enrollment + Calendar",
-                "-fx-background-color: #eef4ff; -fx-text-fill: #1c4a86;");
 
         Label title = new Label("Enrollment");
         title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #173b63;");
@@ -310,13 +335,9 @@ public class EnrollmentViewBuilder {
         subtitle.setWrapText(true);
         subtitle.setStyle("-fx-text-fill: #42586e; -fx-font-size: 13px;");
 
-        Label note = new Label(
-                "Add an option into the calendar when it looks right, then use the dedicated Calendar page to review weekly timing and conflicts."
-        );
-        note.setWrapText(true);
-        note.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px;");
 
-        introCard.getChildren().addAll(phaseChip, title, subtitle, note);
+
+        introCard.getChildren().addAll(title, subtitle);
         HBox.setHgrow(introCard, Priority.ALWAYS);
 
         VBox plannerCard = new VBox(10);
@@ -961,27 +982,13 @@ public class EnrollmentViewBuilder {
             String sortFilter
     ) {
         int count = 0;
-        if (hasText(codeQuery)) {
-            count++;
-        }
-        if (hasText(titleQuery)) {
-            count++;
-        }
-        if (!ALL_STATUSES.equals(statusFilter)) {
-            count++;
-        }
-        if (!ALL_SESSIONS.equals(sessionFilter)) {
-            count++;
-        }
-        if (!ALL_COMPONENTS.equals(componentFilter)) {
-            count++;
-        }
-        if (!ALL_DELIVERY.equals(deliveryFilter)) {
-            count++;
-        }
-        if (!SORT_CODE_ASC.equals(sortFilter)) {
-            count++;
-        }
+        if (hasText(codeQuery))                       count++;
+        if (hasText(titleQuery))                      count++;
+        if (!ALL_STATUSES.equals(statusFilter))       count++;
+        if (!ALL_SESSIONS.equals(sessionFilter))      count++;
+        if (!ALL_COMPONENTS.equals(componentFilter))  count++;
+        if (!ALL_DELIVERY.equals(deliveryFilter))     count++;
+        if (!SORT_CODE_ASC.equals(sortFilter))        count++;
         return count;
     }
 
@@ -994,19 +1001,13 @@ public class EnrollmentViewBuilder {
     }
 
     private boolean matchesStatusFilter(EnrollmentCatalogCourse course, String filter) {
-        if (!hasText(filter) || ALL_STATUSES.equals(filter)) {
-            return true;
-        }
-
+        if (!hasText(filter) || ALL_STATUSES.equals(filter)) return true;
         boolean isOpen = catalogService.hasOpenOffering(course);
         return "Open".equals(filter) ? isOpen : !isOpen;
     }
 
     private boolean matchesSessionFilter(EnrollmentCatalogCourse course, String filter) {
-        if (!hasText(filter) || ALL_SESSIONS.equals(filter)) {
-            return true;
-        }
-
+        if (!hasText(filter) || ALL_SESSIONS.equals(filter)) return true;
         return course.options().stream()
                 .map(EnrollmentCatalogOption::session)
                 .map(this::cleanDisplay)
@@ -1014,26 +1015,18 @@ public class EnrollmentViewBuilder {
     }
 
     private boolean matchesComponentFilter(EnrollmentCatalogCourse course, String filter) {
-        if (!hasText(filter) || ALL_COMPONENTS.equals(filter)) {
-            return true;
-        }
-
+        if (!hasText(filter) || ALL_COMPONENTS.equals(filter)) return true;
         return filter.equalsIgnoreCase(catalogService.formatComponents(course.components()));
     }
 
     private boolean matchesDeliveryFilter(EnrollmentCatalogCourse course, String filter) {
-        if (!hasText(filter) || ALL_DELIVERY.equals(filter)) {
-            return true;
-        }
-
+        if (!hasText(filter) || ALL_DELIVERY.equals(filter)) return true;
         return collectCourseModalities(course).stream().anyMatch(filter::equalsIgnoreCase);
     }
 
     private boolean matchesText(String query, String value) {
         String normalizedQuery = normalize(query);
-        if (normalizedQuery.isBlank()) {
-            return true;
-        }
+        if (normalizedQuery.isBlank()) return true;
         return normalize(value).contains(normalizedQuery);
     }
 
@@ -1055,10 +1048,7 @@ public class EnrollmentViewBuilder {
 
     private boolean hasLabComponent(EnrollmentCatalogCourse course) {
         String components = normalize(course.components());
-        if (components.contains("laboratory")) {
-            return true;
-        }
-
+        if (components.contains("laboratory")) return true;
         return course.options().stream()
                 .flatMap(option -> option.sections().stream())
                 .map(EnrollmentCatalogSection::sectionType)
@@ -1068,17 +1058,12 @@ public class EnrollmentViewBuilder {
 
     private List<String> collectCourseModalities(EnrollmentCatalogCourse course) {
         Set<String> modalities = new LinkedHashSet<>();
-
         for (EnrollmentCatalogOption option : course.options()) {
             for (EnrollmentCatalogSection section : option.sections()) {
                 modalities.add(inferModality(section.room()));
             }
         }
-
-        if (modalities.isEmpty()) {
-            modalities.add("TBA");
-        }
-
+        if (modalities.isEmpty()) modalities.add("TBA");
         return modalities.stream()
                 .sorted(Comparator.comparingInt(this::modalityOrder))
                 .toList();
@@ -1091,55 +1076,40 @@ public class EnrollmentViewBuilder {
                 .filter(this::hasText)
                 .distinct()
                 .toList();
-
         return sessions.isEmpty() ? "N/A" : String.join(", ", sessions);
     }
 
     private int modalityOrder(String modality) {
         return switch (modality) {
-            case "Online" -> 0;
-            case "Hybrid" -> 1;
+            case "Online"    -> 0;
+            case "Hybrid"    -> 1;
             case "In Person" -> 2;
-            default -> 3;
+            default          -> 3;
         };
     }
 
     private String modalityBadgeStyle(String modality) {
         return switch (modality) {
-            case "Online" -> "-fx-background-color: #dff3ff; -fx-text-fill: #1c5f93;";
-            case "Hybrid" -> "-fx-background-color: #efe8ff; -fx-text-fill: #5b48a2;";
+            case "Online"    -> "-fx-background-color: #dff3ff; -fx-text-fill: #1c5f93;";
+            case "Hybrid"    -> "-fx-background-color: #efe8ff; -fx-text-fill: #5b48a2;";
             case "In Person" -> "-fx-background-color: #e7f5ea; -fx-text-fill: #246344;";
-            default -> "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;";
+            default          -> "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;";
         };
     }
 
     private String inferModality(String room) {
         String normalizedRoom = normalize(room);
-        if (normalizedRoom.contains("hybrid")) {
-            return "Hybrid";
-        }
-        if (normalizedRoom.contains("online")) {
-            return "Online";
-        }
-        if (normalizedRoom.isBlank() || "not applicable".equals(normalizedRoom)) {
-            return "TBA";
-        }
+        if (normalizedRoom.contains("hybrid"))                                  return "Hybrid";
+        if (normalizedRoom.contains("online"))                                  return "Online";
+        if (normalizedRoom.isBlank() || "not applicable".equals(normalizedRoom)) return "TBA";
         return "In Person";
     }
 
     private String buildCourseSummary(EnrollmentCatalogCourse course) {
         List<String> parts = new ArrayList<>();
-
-        if (hasText(course.units())) {
-            parts.add(cleanDisplay(course.units()) + " units");
-        }
-        if (hasText(course.grading())) {
-            parts.add(cleanDisplay(course.grading()));
-        }
-        if (hasText(course.courseCareer())) {
-            parts.add(cleanDisplay(course.courseCareer()));
-        }
-
+        if (hasText(course.units()))       parts.add(cleanDisplay(course.units()) + " units");
+        if (hasText(course.grading()))     parts.add(cleanDisplay(course.grading()));
+        if (hasText(course.courseCareer())) parts.add(cleanDisplay(course.courseCareer()));
         return parts.isEmpty() ? "Course details are still being prepared." : String.join("  |  ", parts);
     }
 
@@ -1149,41 +1119,25 @@ public class EnrollmentViewBuilder {
 
     private String displayDays(EnrollmentCatalogSection section) {
         String days = cleanDisplay(section.days());
-        if (hasText(days) && !"Not Applicable".equalsIgnoreCase(days)) {
-            return days;
-        }
-
+        if (hasText(days) && !"Not Applicable".equalsIgnoreCase(days)) return days;
         String room = normalize(section.room());
-        if (room.contains("asynchronous")) {
-            return "Self-paced";
-        }
-        if (room.contains("online")) {
-            return "Online";
-        }
+        if (room.contains("asynchronous")) return "Self-paced";
+        if (room.contains("online"))       return "Online";
         return "TBA";
     }
 
     private String displayTime(EnrollmentCatalogSection section) {
         String time = cleanDisplay(section.time());
-        if (hasText(time) && !"Not Applicable".equalsIgnoreCase(time)) {
-            return time;
-        }
-
+        if (hasText(time) && !"Not Applicable".equalsIgnoreCase(time)) return time;
         String room = normalize(section.room());
-        if (room.contains("asynchronous")) {
-            return "Asynchronous";
-        }
-        if (room.contains("synchronous")) {
-            return "Scheduled Online";
-        }
+        if (room.contains("asynchronous")) return "Asynchronous";
+        if (room.contains("synchronous"))  return "Scheduled Online";
         return "TBA";
     }
 
     private String displayRoom(EnrollmentCatalogSection section) {
         String room = cleanDisplay(section.room());
-        if (hasText(room) && !"Not Applicable".equalsIgnoreCase(room)) {
-            return room;
-        }
+        if (hasText(room) && !"Not Applicable".equalsIgnoreCase(room)) return room;
         return "Online".equals(inferModality(section.room())) ? "Online" : "TBA";
     }
 
@@ -1193,52 +1147,37 @@ public class EnrollmentViewBuilder {
 
     private String displaySeatsText(EnrollmentCatalogSection section) {
         String seatsText = cleanDisplay(section.seatsText());
-        if (hasText(seatsText) && !"Not Applicable".equalsIgnoreCase(seatsText)) {
-            return seatsText;
-        }
+        if (hasText(seatsText) && !"Not Applicable".equalsIgnoreCase(seatsText)) return seatsText;
         return section.hasSeatCounts() ? buildSeatSummary(section) : "Seat information unavailable";
     }
 
     private String buildSeatSummary(EnrollmentCatalogSection section) {
-        if (section.seatsOpen() != null && section.seatsCapacity() != null) {
+        if (section.seatsOpen() != null && section.seatsCapacity() != null)
             return section.seatsOpen() + " of " + section.seatsCapacity() + " open";
-        }
-        if (section.seatsOpen() != null) {
-            return section.seatsOpen() + " open";
-        }
-        if (section.seatsCapacity() != null) {
-            return "Capacity " + section.seatsCapacity();
-        }
+        if (section.seatsOpen() != null)     return section.seatsOpen() + " open";
+        if (section.seatsCapacity() != null) return "Capacity " + section.seatsCapacity();
         return "Seat info unavailable";
     }
 
     private String buildSeatCount(EnrollmentCatalogSection section) {
-        if (section.seatsOpen() != null && section.seatsCapacity() != null) {
+        if (section.seatsOpen() != null && section.seatsCapacity() != null)
             return section.seatsOpen() + " / " + section.seatsCapacity();
-        }
-        if (section.seatsOpen() != null) {
-            return String.valueOf(section.seatsOpen());
-        }
-        if (section.seatsCapacity() != null) {
-            return String.valueOf(section.seatsCapacity());
-        }
+        if (section.seatsOpen() != null)     return String.valueOf(section.seatsOpen());
+        if (section.seatsCapacity() != null) return String.valueOf(section.seatsCapacity());
         return "N/A";
     }
 
     private String buildAddFeedbackMessage(PlannerSelectionResult result) {
         String optionLabel = result.plannedOption().courseCode() + " option " + result.plannedOption().optionNumber();
 
-        if (result.status() == PlannerSelectionStatus.DUPLICATE) {
+        if (result.status() == PlannerSelectionStatus.DUPLICATE)
             return "This course option is already added to your calendar.";
-        }
 
         String baseMessage = result.status() == PlannerSelectionStatus.REPLACED
                 ? "Updated your calendar to use " + optionLabel + "."
                 : "Added " + optionLabel + " to your calendar.";
 
-        if (!result.hasConflicts()) {
-            return baseMessage;
-        }
+        if (!result.hasConflicts()) return baseMessage;
 
         PlannerConflict firstConflict = result.conflicts().get(0);
         PlannerMeetingBlock otherBlock = otherConflictBlock(result, firstConflict);
@@ -1254,7 +1193,6 @@ public class EnrollmentViewBuilder {
             detail += " " + (conflictingCourses.size() - 1) + " more overlapping course"
                     + (conflictingCourses.size() - 1 == 1 ? "" : "s") + " remain in this calendar.";
         }
-
         return baseMessage + detail;
     }
 
@@ -1265,9 +1203,7 @@ public class EnrollmentViewBuilder {
     }
 
     private String feedbackTone(PlannerSelectionResult result) {
-        if (result.status() == PlannerSelectionStatus.DUPLICATE) {
-            return "info";
-        }
+        if (result.status() == PlannerSelectionStatus.DUPLICATE) return "info";
         return result.hasConflicts() ? "warning" : "success";
     }
 
@@ -1277,7 +1213,7 @@ public class EnrollmentViewBuilder {
                     "-fx-border-radius: 14; -fx-border-color: #f0c8bf;";
             case "success" -> "-fx-background-color: #f5fbf7; -fx-background-radius: 14; " +
                     "-fx-border-radius: 14; -fx-border-color: #d7eadc;";
-            default -> "-fx-background-color: #eef4fb; -fx-background-radius: 14; " +
+            default        -> "-fx-background-color: #eef4fb; -fx-background-radius: 14; " +
                     "-fx-border-radius: 14; -fx-border-color: #d9e3ef;";
         };
     }
@@ -1286,14 +1222,16 @@ public class EnrollmentViewBuilder {
         return switch (tone) {
             case "warning" -> "#7f4a4a";
             case "success" -> "#246344";
-            default -> "#31506f";
+            default        -> "#31506f";
         };
     }
 
     private String formatMinutesRange(int startMinutes, int endMinutes) {
-        return java.time.LocalTime.of(startMinutes / 60, startMinutes % 60).format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"))
+        return java.time.LocalTime.of(startMinutes / 60, startMinutes % 60)
+                .format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"))
                 + " - "
-                + java.time.LocalTime.of(endMinutes / 60, endMinutes % 60).format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"));
+                + java.time.LocalTime.of(endMinutes / 60, endMinutes % 60)
+                .format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"));
     }
 
     private boolean shouldShowSectionNote(EnrollmentCatalogSection section) {
@@ -1334,19 +1272,13 @@ public class EnrollmentViewBuilder {
 
     private String cleanDisplay(String value) {
         String cleaned = value == null ? "" : value.trim().replaceAll("\\s+", " ");
-        if (cleaned.isBlank()) {
-            return "";
-        }
-
+        if (cleaned.isBlank()) return "";
         String[] words = cleaned.split(" ");
         if (words.length % 2 == 0) {
-            String firstHalf = String.join(" ", Arrays.copyOfRange(words, 0, words.length / 2));
+            String firstHalf  = String.join(" ", Arrays.copyOfRange(words, 0, words.length / 2));
             String secondHalf = String.join(" ", Arrays.copyOfRange(words, words.length / 2, words.length));
-            if (firstHalf.equalsIgnoreCase(secondHalf)) {
-                return firstHalf;
-            }
+            if (firstHalf.equalsIgnoreCase(secondHalf)) return firstHalf;
         }
-
         return cleaned;
     }
 

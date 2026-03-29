@@ -37,7 +37,7 @@ public class LoginController {
     @FXML private VBox studentPane;
     @FXML private VBox adminPane;
     @FXML private Label errorLabel;
-
+    @FXML private PasswordField studentPasswordField;
     @FXML
     public void switchToStudent() {
         studentPane.setVisible(true);
@@ -65,14 +65,17 @@ public class LoginController {
         String input = studentIdField.getText().trim();
         errorLabel.setText("");
 
-        if (input.isEmpty()) {
-            errorLabel.setText("Please enter your student ID.");
+        String password = studentPasswordField.getText().trim();
+
+        if (input.isEmpty() || password.isEmpty()) {
+            errorLabel.setText("Please enter student ID and password.");
             return;
         }
 
         try {
             int id = Integer.parseInt(input);
             Optional<Student> student = studentRepository.findById(id);
+//
 
             if (student.isPresent()) {
                 FXMLLoader loader = new FXMLLoader(getClass().getResource("/dashboard.fxml"));
