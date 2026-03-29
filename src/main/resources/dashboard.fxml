@@ -8,9 +8,8 @@
       xmlns:fx="http://javafx.com/fxml"
       fx:controller="org.example.comp2800_sas.controller.DashboardController"
       stylesheets="@dashboard.css"
-      prefWidth="1320" prefHeight="820">
+      prefWidth="1100" prefHeight="700">
 
-    <!-- TOP NAVBAR -->
     <HBox styleClass="navbar" alignment="CENTER_LEFT" spacing="16">
         <padding><Insets top="12" bottom="12" left="24" right="24"/></padding>
 
@@ -25,13 +24,13 @@
 
         <HBox HBox.hgrow="ALWAYS"/>
 
-        <Button fx:id="btnHome"     text="Home"     styleClass="nav-btn, nav-btn-active" onAction="#showHome"/>
-        <Button fx:id="btnCourses"  text="Courses"  styleClass="nav-btn" onAction="#showCourses"/>
-        <Button fx:id="btnSchedule" text="Enrollment" styleClass="nav-btn" onAction="#showSchedule"/>
-        <Button fx:id="btnPlanner"  text="Calendar" styleClass="nav-btn" onAction="#showPlanner"/>
-        <Button fx:id="btnAdvisors" text="Advisors" styleClass="nav-btn" onAction="#showAdvisors"/>
-        <Button fx:id="btnReports"  text="Reports"  styleClass="nav-btn" onAction="#showReports"/>
-        <Button                     text="Log Out"  styleClass="nav-btn-logout" onAction="#handleLogout"/>
+        <Button fx:id="btnHome"       text="Home"       styleClass="nav-btn, nav-btn-active" onAction="#showHome"/>
+        <Button fx:id="btnCourses"    text="Courses"    styleClass="nav-btn" onAction="#showCourses"/>
+        <Button fx:id="btnEnrollment" text="Enrollment" styleClass="nav-btn" onAction="#showEnrollment"/>
+        <Button fx:id="btnPlanner"    text="Calendar"   styleClass="nav-btn" onAction="#showPlanner"/>
+        <Button fx:id="btnAdvisors"   text="Advisors"   styleClass="nav-btn" onAction="#showAdvisors"/>
+        <Button fx:id="btnReports"    text="Reports"    styleClass="nav-btn" onAction="#showReports"/>
+        <Button                        text="Log Out"   styleClass="nav-btn-logout" onAction="#handleLogout"/>
 
         <HBox HBox.hgrow="ALWAYS"/>
 
@@ -41,30 +40,6 @@
         </VBox>
     </HBox>
 
-    <!-- WELCOME BANNER -->
-    <HBox styleClass="banner" alignment="CENTER_LEFT" spacing="40">
-        <padding><Insets top="24" bottom="24" left="40" right="40"/></padding>
-        <VBox spacing="4">
-            <Label fx:id="welcomeLabel" text="Welcome back!" styleClass="banner-title"/>
-            <Label text="BSc Computer Science  ·  Winter 2026" styleClass="banner-sub"/>
-        </VBox>
-        <HBox HBox.hgrow="ALWAYS"/>
-        <VBox styleClass="stat-box" alignment="CENTER" spacing="2">
-            <Label fx:id="enrolledLabel" text="0" styleClass="stat-num-yellow"/>
-            <Label text="Calendar Items" styleClass="stat-label"/>
-        </VBox>
-    </HBox>
-
-    <!-- CONTENT AREA -->
-    <ScrollPane VBox.vgrow="ALWAYS"
-                fitToWidth="true"
-                hbarPolicy="NEVER"
-                styleClass="content-scroll">
-        <content>
-            <StackPane fx:id="contentArea" styleClass="content-area">
-                <Label text="Select a section from the menu above." styleClass="placeholder-text"/>
-            </StackPane>
-        </content>
-    </ScrollPane>
+    <StackPane fx:id="contentArea" VBox.vgrow="ALWAYS" styleClass="content-area"/>
 
 </VBox>

@@ -8,7 +8,7 @@
            xmlns:fx="http://javafx.com/fxml"
            fx:controller="org.example.comp2800_sas.controller.LoginController"
            stylesheets="@login.css"
-           prefWidth="560" prefHeight="480">
+           prefWidth="560" prefHeight="520">
 
     <HBox>
         <!-- LEFT PANEL -->
@@ -26,23 +26,55 @@
 
         <!-- RIGHT PANEL -->
         <VBox styleClass="right-panel" alignment="CENTER" spacing="16" HBox.hgrow="ALWAYS">
-            <padding><Insets top="50" bottom="50" left="40" right="40"/></padding>
+            <padding><Insets top="40" bottom="40" left="40" right="40"/></padding>
 
-            <Label text="Welcome Back" styleClass="login-title"/>
-            <Label text="Sign in with your student ID" styleClass="login-sub"/>
+            <!-- Tab toggle -->
+            <HBox spacing="0" alignment="CENTER"
+                  style="-fx-background-color: white; -fx-background-radius: 6;
+                         -fx-border-color: #1a3a5c; -fx-border-radius: 6; -fx-border-width: 1;">
+                <Button fx:id="btnStudentTab" text="Student" onAction="#switchToStudent"
+                        styleClass="tab-btn-active" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                <Button fx:id="btnAdminTab" text="Admin" onAction="#switchToAdmin"
+                        styleClass="tab-btn" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+            </HBox>
 
-            <VBox spacing="6" maxWidth="Infinity">
-                <Label text="STUDENT ID" styleClass="field-label"/>
-                <TextField fx:id="studentIdField"
-
-                           styleClass="text-field"/>
+            <!-- Student login -->
+            <VBox fx:id="studentPane" spacing="16" maxWidth="Infinity">
+                <Label text="Sign in with your student ID" styleClass="login-sub"/>
+                <VBox spacing="6">
+                    <Label text="STUDENT ID" styleClass="field-label"/>
+                    <TextField fx:id="studentIdField"
+                               promptText="e.g. 1"
+                               styleClass="text-field"/>
+                </VBox>
+                <Button fx:id="loginButton"
+                        text="Sign In"
+                        styleClass="login-btn"
+                        onAction="#handleLogin"
+                        maxWidth="Infinity"/>
             </VBox>
 
-            <Button fx:id="loginButton"
-                    text="Sign In"
-                    styleClass="login-btn"
-                    onAction="#handleLogin"
-                    maxWidth="Infinity"/>
+            <!-- Admin login -->
+            <VBox fx:id="adminPane" spacing="16" maxWidth="Infinity" visible="false" managed="false">
+                <Label text="Sign in with admin credentials" styleClass="login-sub"/>
+                <VBox spacing="6">
+                    <Label text="USERNAME" styleClass="field-label"/>
+                    <TextField fx:id="adminUsernameField"
+                               promptText="Username"
+                               styleClass="text-field"/>
+                </VBox>
+                <VBox spacing="6">
+                    <Label text="PASSWORD" styleClass="field-label"/>
+                    <PasswordField fx:id="adminPasswordField"
+                                   promptText="Password"
+                                   styleClass="text-field"/>
+                </VBox>
+                <Button fx:id="adminLoginButton"
+                        text="Sign In"
+                        styleClass="login-btn"
+                        onAction="#handleAdminLogin"
+                        maxWidth="Infinity"/>
+            </VBox>
 
             <Label fx:id="errorLabel" styleClass="error-label" text="" wrapText="true"/>
         </VBox>

@@ -3,8 +3,10 @@ package org.example.comp2800_sas.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import org.example.comp2800_sas.model.EnrollmentCatalogCourse;
 import org.example.comp2800_sas.model.EnrollmentCatalogData;
+import org.example.comp2800_sas.model.EnrollmentCatalogOption;
 import org.example.comp2800_sas.model.EnrollmentCatalogSummary;
 import org.springframework.stereotype.Service;
 
@@ -26,10 +28,11 @@ public class EnrollmentCatalogService {
 
     public EnrollmentCatalogService() {
         objectMapper = new ObjectMapper()
-                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .enable(SerializationFeature.INDENT_OUTPUT);
     }
 
-    public EnrollmentCatalogData loadCatalog() {
+    public synchronized EnrollmentCatalogData loadCatalog() {
         List<EnrollmentCatalogCourse> courses = readCourses().stream()
                 .filter(Objects::nonNull)
                 .sorted(Comparator.comparing(course -> sortKey(course.courseCode())))
@@ -73,6 +76,42 @@ public class EnrollmentCatalogService {
                 .toList();
 
         return new EnrollmentCatalogData(courses, summary, sessions, componentFilters);
+    }
+
+    public synchronized void saveCourses(List<EnrollmentCatalogCourse> courses) {
+        List<EnrollmentCatalogCourse> normalizedCourses = courses == null
+                ? List.of()
+                : courses.stream()
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparing(course -> sortKey(course.courseCode())))
+                .toList();
+
+        Path catalogPath = resolveCatalogPathForWrite();
+        try {
+            objectMapper.writeValue(catalogPath.toFile(), normalizedCourses);
+        } catch (IOException exception) {
+            throw new IllegalStateException(
+                    "Unable to save enrollment catalog to " + catalogPath.toAbsolutePath(),
+                    exception
+            );
+        }
+    }
+
+    public synchronized String formatOptionsJson(List<EnrollmentCatalogOption> options) {
+        try {
+            return objectMapper.writeValueAsString(options == null ? List.of() : options);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Unable to format catalog offerings for editing.", exception);
+        }
+    }
+
+    public synchronized List<EnrollmentCatalogOption> parseOptionsJson(String optionsJson) {
+        String normalizedJson = optionsJson == null || optionsJson.isBlank() ? "[]" : optionsJson.trim();
+        try {
+            return objectMapper.readValue(normalizedJson, new TypeReference<>() {});
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("Offerings JSON is invalid. Please fix the JSON structure and try again.", exception);
+        }
     }
 
     public String formatComponents(String components) {
@@ -123,6 +162,21 @@ public class EnrollmentCatalogService {
         throw new IllegalStateException(
                 "Enrollment catalog file not found. Expected " + CATALOG_FILE_NAME + " in the project root."
         );
+    }
+
+    private Path resolveCatalogPathForWrite() {
+        List<Path> candidates = List.of(
+                Path.of(CATALOG_FILE_NAME),
+                Path.of(System.getProperty("user.dir", ".")).resolve(CATALOG_FILE_NAME)
+        );
+
+        for (Path candidate : candidates) {
+            if (Files.exists(candidate)) {
+                return candidate;
+            }
+        }
+
+        return Path.of(CATALOG_FILE_NAME);
     }
 
     private String clean(String value) {

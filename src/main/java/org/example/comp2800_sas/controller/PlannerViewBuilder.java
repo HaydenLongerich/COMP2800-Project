@@ -73,10 +73,16 @@ public class PlannerViewBuilder {
         this.onPlannerUpdated = onPlannerUpdated;
     }
 
-    public VBox build(EnrollmentCatalogData catalog) {
+    public ScrollPane build(EnrollmentCatalogData catalog) {
+        ScrollPane pageScroll = new ScrollPane();
+        pageScroll.setFitToWidth(true);
+        pageScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        pageScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+
         VBox wrapper = new VBox(18);
         wrapper.setPadding(new Insets(24));
         wrapper.setMaxWidth(1260);
+        wrapper.setFillWidth(true);
 
         Label title = new Label("Semester Calendar");
         title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #173b63;");
@@ -233,7 +239,8 @@ public class PlannerViewBuilder {
         deliveryFilter.valueProperty().addListener((obs, oldVal, newVal) -> renderRef[0].run());
 
         renderRef[0].run();
-        return wrapper;
+        pageScroll.setContent(wrapper);
+        return pageScroll;
     }
 
     private VBox createPlannedCoursesCard(

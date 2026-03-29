@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.geometry.*?>
+
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="org.example.comp2800_sas.controller.AdminDashboardController"
+      stylesheets="@dashboard.css"
+      prefWidth="1100" prefHeight="700">
+
+    <HBox styleClass="navbar" alignment="CENTER_LEFT" spacing="16">
+        <padding><Insets top="12" bottom="12" left="24" right="24"/></padding>
+
+        <ImageView fitWidth="36" fitHeight="36" preserveRatio="true">
+            <image><Image url="@logo.png"/></image>
+        </ImageView>
+
+        <VBox spacing="1">
+            <Label text="Student Advisory System" styleClass="nav-title"/>
+            <Label text="University of Windsor - Admin" styleClass="nav-subtitle"/>
+        </VBox>
+
+        <HBox HBox.hgrow="ALWAYS"/>
+
+        <Button fx:id="btnStudents"    text="Students"    styleClass="nav-btn, nav-btn-active" onAction="#showStudents"/>
+        <Button fx:id="btnEnrollments" text="Enrollments" styleClass="nav-btn" onAction="#showEnrollments"/>
+        <Button fx:id="btnSections"    text="Catalog"     styleClass="nav-btn" onAction="#showSections"/>
+        <Button fx:id="btnPreviewEnrollment" text="Preview Enrollment" styleClass="nav-btn" onAction="#showPreviewEnrollment"/>
+        <Button fx:id="btnPreviewCalendar" text="Preview Calendar" styleClass="nav-btn" onAction="#showPreviewCalendar"/>
+        <Button                        text="Log Out"     styleClass="nav-btn-logout" onAction="#handleLogout"/>
+
+        <HBox HBox.hgrow="ALWAYS"/>
+
+        <VBox alignment="CENTER_RIGHT" spacing="1">
+            <Label fx:id="adminNameLabel" styleClass="nav-username"/>
+            <Label text="Administrator" styleClass="nav-userrole"/>
+            <Label fx:id="previewStudentLabel" styleClass="nav-userrole"/>
+        </VBox>
+    </HBox>
+
+    <StackPane fx:id="contentArea" VBox.vgrow="ALWAYS" styleClass="content-area"/>
+
+</VBox>

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,7 +33,6 @@ public class SemesterPlannerService {
     private final EnrollmentCatalogService enrollmentCatalogService;
 
     private Integer currentStudentId;
-    private EnrollmentCatalogData catalogCache;
     private Map<String, List<PlannedCourseOption>> resolvedPlansCache;
 
     public SemesterPlannerService(
@@ -52,6 +52,25 @@ public class SemesterPlannerService {
 
     public synchronized void clearCurrentStudent() {
         this.currentStudentId = null;
+        invalidatePlanCache();
+    }
+
+    @Transactional(readOnly = true)
+    public synchronized Map<String, List<PlannedCourseOption>> getPlanBySessionForStudent(Integer studentId) {
+        if (studentId == null) {
+            return Map.of();
+        }
+        return copyPlans(loadResolvedPlans(studentId));
+    }
+
+    @Transactional(readOnly = true)
+    public synchronized List<PlannedCourseOption> getAllPlannedOptionsForStudent(Integer studentId) {
+        return getPlanBySessionForStudent(studentId).values().stream()
+                .flatMap(List::stream)
+                .toList();
+    }
+
+    public synchronized void refreshCatalogState() {
         invalidatePlanCache();
     }
 
@@ -219,7 +238,7 @@ public class SemesterPlannerService {
     }
 
     private Map<String, List<PlannedCourseOption>> loadResolvedPlans(Integer studentId) {
-        EnrollmentCatalogData catalog = getCatalog();
+        EnrollmentCatalogData catalog = enrollmentCatalogService.loadCatalog();
         Map<String, List<PlannedCourseOption>> plansBySession = new LinkedHashMap<>();
 
         for (PlannerSelection selection : plannerSelectionRepository
@@ -258,13 +277,6 @@ public class SemesterPlannerService {
                 .orElse(null);
     }
 
-    private EnrollmentCatalogData getCatalog() {
-        if (catalogCache == null) {
-            catalogCache = enrollmentCatalogService.loadCatalog();
-        }
-        return catalogCache;
-    }
-
     private Integer requireCurrentStudentId() {
         if (currentStudentId == null) {
             throw new IllegalStateException("No current student is set for the semester planner.");
@@ -274,6 +286,14 @@ public class SemesterPlannerService {
 
     private void invalidatePlanCache() {
         resolvedPlansCache = null;
+    }
+
+    private Map<String, List<PlannedCourseOption>> copyPlans(Map<String, List<PlannedCourseOption>> source) {
+        Map<String, List<PlannedCourseOption>> copiedPlans = new LinkedHashMap<>();
+        for (Map.Entry<String, List<PlannedCourseOption>> entry : source.entrySet()) {
+            copiedPlans.put(entry.getKey(), List.copyOf(entry.getValue()));
+        }
+        return Collections.unmodifiableMap(copiedPlans);
     }
 
     private double parseUnits(String units) {
