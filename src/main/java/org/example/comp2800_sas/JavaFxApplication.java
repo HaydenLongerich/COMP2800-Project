@@ -9,6 +9,9 @@ import javafx.stage.Stage;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 
+/**
+ * Launches the JavaFX desktop client and bridges it to the shared Spring context.
+ */
 public class JavaFxApplication extends Application {
     private ConfigurableApplicationContext context;
 

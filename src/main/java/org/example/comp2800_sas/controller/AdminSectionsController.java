@@ -36,6 +36,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
+/**
+ * JavaFX controller for the admin sections management screen.
+ */
 @Component
 @Scope("prototype")
 public class AdminSectionsController {

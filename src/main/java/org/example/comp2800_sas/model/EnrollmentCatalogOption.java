@@ -5,6 +5,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
+/**
+ * Immutable enrollment option with sections, schedule details, and status metadata.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record EnrollmentCatalogOption(
         @JsonProperty("option_number") String optionNumber,

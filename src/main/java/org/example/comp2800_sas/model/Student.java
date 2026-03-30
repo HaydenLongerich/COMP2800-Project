@@ -7,6 +7,9 @@ import lombok.Setter;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Persistent student record and its enrollment relationships.
+ */
 @Getter
 @Setter
 @Entity

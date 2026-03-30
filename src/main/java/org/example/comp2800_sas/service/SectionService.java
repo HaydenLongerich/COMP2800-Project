@@ -13,6 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Service layer for section lookup, scheduling, and assignment flows.
+ */
 @Service
 @Transactional
 public class SectionService {

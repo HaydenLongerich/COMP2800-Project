@@ -8,6 +8,9 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextField;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -24,14 +27,22 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Component
 @Scope("prototype")
+/**
+ * Builds the Advisors page from catalog teaching data.
+ * This view intentionally filters and cleans instructor data for display without
+ * changing the underlying Enrollment/Calendar catalog content.
+ */
 public class FacultyController {
 
     @Autowired private EnrollmentCatalogService enrollmentCatalogService;
@@ -60,6 +71,7 @@ public class FacultyController {
         Task<List<InstructorCatalogSummary>> task = new Task<>() {
             @Override
             protected List<InstructorCatalogSummary> call() {
+                // Build the advisor list off the FX thread because the page walks the whole catalog.
                 return buildInstructorSummaries(enrollmentCatalogService.loadCatalog().courses());
             }
         };
@@ -138,14 +150,14 @@ public class FacultyController {
                 VBox nameBox = new VBox(4);
                 Label nameLabel = new Label(instructor.name());
                 nameLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: white;");
-                Label roleLabel = new Label("Current catalog teaching contact");
+                Label roleLabel = new Label("Current catalog lecture contact");
                 roleLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #b6cee6;");
                 nameBox.getChildren().addAll(nameLabel, roleLabel);
 
                 Region spacer = new Region();
                 HBox.setHgrow(spacer, Priority.ALWAYS);
 
-                Label sectionBadge = new Label(instructor.assignments().size() + " section row" + (instructor.assignments().size() == 1 ? "" : "s"));
+                Label sectionBadge = new Label(instructor.assignments().size() + " lecture row" + (instructor.assignments().size() == 1 ? "" : "s"));
                 sectionBadge.setStyle("-fx-background-color: #254d73; -fx-text-fill: #a8c8e8; " +
                         "-fx-background-radius: 999; -fx-padding: 4 10; -fx-font-size: 11px;");
 
@@ -157,6 +169,7 @@ public class FacultyController {
                 FlowPane summary = new FlowPane(8, 8);
                 instructor.sessions().forEach(session -> summary.getChildren().add(createBadge(session, "#eef4fb", "#31506f")));
                 instructor.deliveryModes().forEach(mode -> summary.getChildren().add(createBadge(mode, "#f7fafe", "#31506f")));
+                cardBody.getChildren().add(createEmailRow(instructor.name()));
                 cardBody.getChildren().add(summary);
 
                 VBox teachingList = new VBox(8);
@@ -203,14 +216,27 @@ public class FacultyController {
     }
 
     private List<InstructorCatalogSummary> buildInstructorSummaries(List<EnrollmentCatalogCourse> courses) {
-        Map<String, List<InstructorAssignment>> assignmentsByInstructor = new LinkedHashMap<>();
+        Map<String, Set<InstructorAssignment>> assignmentsByInstructor = new LinkedHashMap<>();
+        Map<String, String> displayNamesByInstructor = new LinkedHashMap<>();
 
         for (EnrollmentCatalogCourse course : courses) {
             for (EnrollmentCatalogOption option : course.options()) {
                 for (EnrollmentCatalogSection section : option.sections()) {
+                    // Advisors only show lecture contacts, not labs/tutorial placeholders.
+                    if (!isAdvisorSection(section)) {
+                        continue;
+                    }
+
+                    // Collapse duplicate names and remove placeholder values such as TBA or Closed.
                     String instructorName = cleanInstructorName(section.instructor());
+                    if (instructorName == null) {
+                        continue;
+                    }
+
+                    String instructorKey = instructorName.toLowerCase(Locale.ROOT);
+                    displayNamesByInstructor.putIfAbsent(instructorKey, instructorName);
                     assignmentsByInstructor
-                            .computeIfAbsent(instructorName, key -> new ArrayList<>())
+                            .computeIfAbsent(instructorKey, key -> new LinkedHashSet<>())
                             .add(new InstructorAssignment(
                                     course.courseCode(),
                                     course.courseName(),
@@ -226,23 +252,27 @@ public class FacultyController {
         }
 
         return assignmentsByInstructor.entrySet().stream()
-                .map(entry -> new InstructorCatalogSummary(
-                        entry.getKey(),
-                        entry.getValue().stream()
+                .map(entry -> {
+                    List<InstructorAssignment> assignments = entry.getValue().stream()
                                 .sorted(Comparator
                                         .comparing(InstructorAssignment::session)
                                         .thenComparing(InstructorAssignment::courseCode)
                                         .thenComparing(InstructorAssignment::sectionNumber))
-                                .toList(),
-                        entry.getValue().stream()
-                                .map(InstructorAssignment::session)
-                                .distinct()
-                                .toList(),
-                        entry.getValue().stream()
-                                .map(InstructorAssignment::deliveryMode)
-                                .distinct()
-                                .toList()
-                ))
+                                .toList();
+
+                    return new InstructorCatalogSummary(
+                            displayNamesByInstructor.get(entry.getKey()),
+                            assignments,
+                            assignments.stream()
+                                    .map(InstructorAssignment::session)
+                                    .distinct()
+                                    .toList(),
+                            assignments.stream()
+                                    .map(InstructorAssignment::deliveryMode)
+                                    .distinct()
+                                    .toList()
+                    );
+                })
                 .sorted(Comparator.comparing(summary -> summary.name().toLowerCase(Locale.ROOT)))
                 .toList();
     }
@@ -256,16 +286,125 @@ public class FacultyController {
         return days + " " + time;
     }
 
+    private HBox createEmailRow(String instructorName) {
+        Label emailLabel = new Label("Email");
+        emailLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #173b63;");
+
+        // These are intentionally placeholder addresses so users can still copy a predictable contact format.
+        TextField emailField = new TextField(buildAdvisorEmail(instructorName));
+        emailField.setEditable(false);
+        emailField.setStyle(
+                "-fx-background-color: #f7fafe; -fx-background-radius: 12; -fx-border-radius: 12; " +
+                        "-fx-border-color: #d9e3ef; -fx-text-fill: #31506f; -fx-font-size: 12px; -fx-font-weight: bold;"
+        );
+        emailField.setOnMouseClicked(event -> emailField.selectAll());
+        HBox.setHgrow(emailField, Priority.ALWAYS);
+
+        Button copyEmailButton = createActionButton("Copy Email", "#eef4fb", "#1a3a5c");
+        copyEmailButton.setOnAction(event -> {
+            ClipboardContent clipboardContent = new ClipboardContent();
+            clipboardContent.putString(emailField.getText());
+            Clipboard.getSystemClipboard().setContent(clipboardContent);
+        });
+
+        VBox emailBlock = new VBox(6, emailLabel, emailField);
+        HBox.setHgrow(emailBlock, Priority.ALWAYS);
+
+        HBox row = new HBox(10, emailBlock, copyEmailButton);
+        row.setAlignment(Pos.BOTTOM_LEFT);
+        return row;
+    }
+
+    private boolean isAdvisorSection(EnrollmentCatalogSection section) {
+        String normalizedSectionType = fallback(section.sectionType(), "")
+                .replaceAll("[^A-Za-z]", "")
+                .toUpperCase(Locale.ROOT);
+        return normalizedSectionType.startsWith("LEC") || "LECTURE".equals(normalizedSectionType);
+    }
+
     private String cleanInstructorName(String instructor) {
-        String cleaned = fallback(instructor, "Staff / TBA");
-        return cleaned.isBlank() ? "Staff / TBA" : cleaned;
+        String cleaned = collapseRepeatedName(fallback(instructor, ""));
+        if (cleaned.isBlank() || isPlaceholderInstructorName(cleaned)) {
+            return null;
+        }
+        return cleaned;
+    }
+
+    private String collapseRepeatedName(String instructor) {
+        String cleaned = fallback(instructor, "").replaceAll("\\s+", " ");
+        if (cleaned.isBlank()) {
+            return "";
+        }
+
+        // Some imported names arrive duplicated as repeated halves; collapse them back to one display name.
+        String[] parts = cleaned.split("\\s+");
+        for (int segmentLength = 1; segmentLength <= parts.length / 2; segmentLength++) {
+            if (parts.length % segmentLength != 0) {
+                continue;
+            }
+
+            boolean repeats = true;
+            for (int index = segmentLength; index < parts.length; index++) {
+                if (!parts[index].equalsIgnoreCase(parts[index % segmentLength])) {
+                    repeats = false;
+                    break;
+                }
+            }
+
+            if (repeats) {
+                return String.join(" ", Arrays.copyOfRange(parts, 0, segmentLength));
+            }
+        }
+
+        return cleaned;
+    }
+
+    private boolean isPlaceholderInstructorName(String instructorName) {
+        String normalized = instructorName.toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z]+", " ")
+                .trim();
+        return normalized.isBlank()
+                || "closed".equals(normalized)
+                || "to be announced".equals(normalized)
+                || "tba".equals(normalized)
+                || "staff".equals(normalized)
+                || "staff tba".equals(normalized);
+    }
+
+    private String buildAdvisorEmail(String instructorName) {
+        StringBuilder localPart = new StringBuilder();
+        for (String part : stripHonorifics(instructorName).split("\\s+")) {
+            // Strip punctuation so the generated placeholder email stays copyable and predictable.
+            String cleanedPart = part.replaceAll("[^A-Za-z]", "");
+            if (!cleanedPart.isBlank()) {
+                localPart.append(Character.toUpperCase(cleanedPart.charAt(0)));
+                if (cleanedPart.length() > 1) {
+                    localPart.append(cleanedPart.substring(1).toLowerCase(Locale.ROOT));
+                }
+            }
+        }
+
+        if (localPart.isEmpty()) {
+            localPart.append("AdvisorContact");
+        }
+
+        return localPart + "@uwindsor.ca";
+    }
+
+    private String stripHonorifics(String name) {
+        return fallback(name, "")
+                .replaceFirst("(?i)^dr\\.?\\s+", "")
+                .replaceFirst("(?i)^prof\\.?\\s+", "")
+                .replaceFirst("(?i)^professor\\s+", "")
+                .trim();
     }
 
     private String getInitials(String name) {
-        if (name == null || name.isBlank()) {
+        String displayName = stripHonorifics(name);
+        if (displayName.isBlank()) {
             return "?";
         }
-        String[] parts = name.replace("Dr.", "").trim().split("\\s+");
+        String[] parts = displayName.split("\\s+");
         StringBuilder initials = new StringBuilder();
         for (String part : parts) {
             if (!part.isBlank()) {

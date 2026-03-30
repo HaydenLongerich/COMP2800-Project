@@ -15,6 +15,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+/**
+ * Builds read-only course browser rows from course, section, and prerequisite data.
+ */
 @Service
 @Transactional(readOnly = true)
 public class CourseBrowserService {

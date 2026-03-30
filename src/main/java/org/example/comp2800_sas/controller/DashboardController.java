@@ -3,11 +3,13 @@ package org.example.comp2800_sas.controller;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressIndicator;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 import org.example.comp2800_sas.model.EnrollmentCatalogData;
@@ -20,6 +22,11 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Component;
 
 @Component
+/**
+ * Main student shell controller.
+ * It owns the top navigation bar and swaps the large content area between
+ * Home, Courses, Enrollment, Calendar, Advisors, and Reports.
+ */
 public class DashboardController {
 
     @Autowired private ConfigurableApplicationContext applicationContext;
@@ -40,6 +47,7 @@ public class DashboardController {
     private String currentView = "";
 
     public void setStudent(Student student) {
+        // Both the session service and planner service need the active student before child screens load.
         sessionService.setCurrentStudent(student);
         semesterPlannerService.setCurrentStudent(student.getStudentId());
         studentNameLabel.setText(student.getName());
@@ -68,9 +76,10 @@ public class DashboardController {
             loader.setControllerFactory(applicationContext::getBean);
             Parent screen = loader.load();
 
+            // Give child controllers shortcuts back into shared Enrollment/Calendar navigation when needed.
             configureScreenNavigation(loader.getController());
 
-            contentArea.getChildren().setAll(screen);
+            showContent(screen);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -142,6 +151,7 @@ public class DashboardController {
         Task<Parent> task = new Task<>() {
             @Override
             protected Parent call() {
+                // Build heavy catalog-based screens off the FX thread so navigation feels responsive.
                 EnrollmentCatalogData catalog = enrollmentCatalogService.loadCatalog();
 
                 EnrollmentViewBuilder builder = new EnrollmentViewBuilder(
@@ -157,7 +167,7 @@ public class DashboardController {
 
         task.setOnSucceeded(event -> {
             if (!"enrollment".equals(currentView)) return;
-            contentArea.getChildren().setAll(task.getValue());
+            showContent(task.getValue());
         });
 
         task.setOnFailed(event -> {
@@ -176,6 +186,7 @@ public class DashboardController {
         Task<Parent> task = new Task<>() {
             @Override
             protected Parent call() {
+                // Calendar shares the same catalog data, so we load and build it asynchronously too.
                 EnrollmentCatalogData catalog = enrollmentCatalogService.loadCatalog();
 
                 PlannerViewBuilder builder = new PlannerViewBuilder(
@@ -191,7 +202,7 @@ public class DashboardController {
 
         task.setOnSucceeded(event -> {
             if (!"planner".equals(currentView)) return;
-            contentArea.getChildren().setAll(task.getValue());
+            showContent(task.getValue());
         });
 
         task.setOnFailed(event -> {
@@ -213,6 +224,15 @@ public class DashboardController {
         spinnerPane.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
 
         contentArea.getChildren().setAll(spinnerPane);
+    }
+
+    private void showContent(Parent content) {
+        // Anchor dynamic pages to the top-left so fullscreen layouts expand naturally instead of recentering.
+        StackPane.setAlignment(content, Pos.TOP_LEFT);
+        if (content instanceof Region region) {
+            region.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        }
+        contentArea.getChildren().setAll(content);
     }
 
     private void showError(String message) {

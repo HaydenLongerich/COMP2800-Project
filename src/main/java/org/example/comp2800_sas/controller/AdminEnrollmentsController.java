@@ -23,6 +23,9 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * JavaFX controller for the admin enrollment management screen.
+ */
 @Component
 @Scope("prototype")
 public class AdminEnrollmentsController {

@@ -10,6 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 
+/**
+ * Service layer for student enrollments and enrollment status updates.
+ */
 @Service
 @Transactional
 public class EnrollmentService {

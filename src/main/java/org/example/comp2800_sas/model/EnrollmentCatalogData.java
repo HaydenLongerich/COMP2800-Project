@@ -2,6 +2,9 @@ package org.example.comp2800_sas.model;
 
 import java.util.List;
 
+/**
+ * Aggregated catalog payload shared by the enrollment and planner screens.
+ */
 public record EnrollmentCatalogData(
         List<EnrollmentCatalogCourse> courses,
         EnrollmentCatalogSummary summary,

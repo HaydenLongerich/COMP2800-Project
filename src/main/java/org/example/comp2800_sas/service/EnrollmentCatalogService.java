@@ -14,17 +14,26 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
 @Service
+/**
+ * Centralized reader/writer for the uploaded course catalog JSON.
+ * The service also keeps a lightweight in-memory cache so repeated screen loads
+ * do not reparse the same file unless the file timestamp changes.
+ */
 public class EnrollmentCatalogService {
 
     private static final String CATALOG_FILE_NAME = "COMP COURSES FINAL.json";
 
     private final ObjectMapper objectMapper;
+    private EnrollmentCatalogData cachedCatalog;
+    private Path cachedCatalogPath;
+    private long cachedCatalogLastModified;
 
     public EnrollmentCatalogService() {
         objectMapper = new ObjectMapper()
@@ -33,7 +42,29 @@ public class EnrollmentCatalogService {
     }
 
     public synchronized EnrollmentCatalogData loadCatalog() {
-        List<EnrollmentCatalogCourse> courses = readCourses().stream()
+        Path catalogPath = resolveCatalogPath();
+        long lastModified = readLastModified(catalogPath);
+
+        // Reuse the last parsed catalog when the same file is still on disk unchanged.
+        if (cachedCatalog != null
+                && cachedCatalogPath != null
+                && cachedCatalogPath.equals(catalogPath.toAbsolutePath().normalize())
+                && cachedCatalogLastModified == lastModified) {
+            return cachedCatalog;
+        }
+
+        EnrollmentCatalogData catalogData = buildCatalogData(readCourses(catalogPath));
+        cachedCatalog = catalogData;
+        cachedCatalogPath = catalogPath.toAbsolutePath().normalize();
+        cachedCatalogLastModified = lastModified;
+        return catalogData;
+    }
+
+    private EnrollmentCatalogData buildCatalogData(List<EnrollmentCatalogCourse> rawCourses) {
+        // Normalize once here so every consumer gets the same sorted course list and summary metadata.
+        List<EnrollmentCatalogCourse> courses = rawCourses == null
+                ? List.of()
+                : rawCourses.stream()
                 .filter(Objects::nonNull)
                 .sorted(Comparator.comparing(course -> sortKey(course.courseCode())))
                 .toList();
@@ -89,6 +120,10 @@ public class EnrollmentCatalogService {
         Path catalogPath = resolveCatalogPathForWrite();
         try {
             objectMapper.writeValue(catalogPath.toFile(), normalizedCourses);
+            // Refresh the cache immediately so admin edits are visible without another file parse.
+            cachedCatalog = buildCatalogData(normalizedCourses);
+            cachedCatalogPath = catalogPath.toAbsolutePath().normalize();
+            cachedCatalogLastModified = readLastModified(catalogPath);
         } catch (IOException exception) {
             throw new IllegalStateException(
                     "Unable to save enrollment catalog to " + catalogPath.toAbsolutePath(),
@@ -128,6 +163,7 @@ public class EnrollmentCatalogService {
     }
 
     public boolean hasOpenOffering(EnrollmentCatalogCourse course) {
+        // Treat a course as open if either the option is marked open or any section still has seats.
         return course != null && course.options().stream().anyMatch(option ->
                 option.isOpen() || option.sections().stream().anyMatch(section ->
                         section.seatsOpen() != null && section.seatsOpen() > 0
@@ -135,8 +171,7 @@ public class EnrollmentCatalogService {
         );
     }
 
-    private List<EnrollmentCatalogCourse> readCourses() {
-        Path catalogPath = resolveCatalogPath();
+    private List<EnrollmentCatalogCourse> readCourses(Path catalogPath) {
         try (InputStream inputStream = Files.newInputStream(catalogPath)) {
             return objectMapper.readValue(inputStream, new TypeReference<>() {});
         } catch (IOException exception) {
@@ -177,6 +212,18 @@ public class EnrollmentCatalogService {
         }
 
         return Path.of(CATALOG_FILE_NAME);
+    }
+
+    private long readLastModified(Path catalogPath) {
+        try {
+            FileTime fileTime = Files.getLastModifiedTime(catalogPath);
+            return fileTime.toMillis();
+        } catch (IOException exception) {
+            throw new IllegalStateException(
+                    "Unable to check enrollment catalog timestamp for " + catalogPath.toAbsolutePath(),
+                    exception
+            );
+        }
     }
 
     private String clean(String value) {

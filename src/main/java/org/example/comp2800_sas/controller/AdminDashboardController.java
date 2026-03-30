@@ -10,6 +10,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressIndicator;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
@@ -30,6 +31,11 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 @Component
+/**
+ * Admin shell controller.
+ * Besides normal admin navigation, this controller also supports "preview as student"
+ * flows so admins can open Enrollment and Calendar with a selected student's planner state.
+ */
 public class AdminDashboardController {
 
     @Autowired private ConfigurableApplicationContext applicationContext;
@@ -53,6 +59,7 @@ public class AdminDashboardController {
 
     public void setAdmin(Admin admin) {
         adminNameLabel.setText(admin.getName());
+        // Reset any old preview context when a different admin session starts.
         clearPreviewStudent();
         showStudents();
     }
@@ -79,7 +86,7 @@ public class AdminDashboardController {
             loader.setControllerFactory(applicationContext::getBean);
             Parent screen = loader.load();
             configureScreen(loader.getController());
-            contentArea.getChildren().setAll(screen);
+            showContent(screen);
         } catch (Exception exception) {
             exception.printStackTrace();
         }
@@ -113,7 +120,7 @@ public class AdminDashboardController {
     public void showPreviewEnrollment() {
         setActiveButton(btnPreviewEnrollment);
         if (!hasPreviewStudent()) {
-            contentArea.getChildren().setAll(createPreviewPlaceholder(
+            showContent(createPreviewPlaceholder(
                     "Pick a student to preview Enrollment.",
                     "Open the Students page and choose who you want to inspect first."
             ));
@@ -123,14 +130,14 @@ public class AdminDashboardController {
                 enrollmentCatalogService, semesterPlannerService,
                 this::showPreviewCalendar, () -> {}
         );
-        contentArea.getChildren().setAll(builder.build(enrollmentCatalogService.loadCatalog()));
+        showContent(builder.build(enrollmentCatalogService.loadCatalog()));
     }
 
     @FXML
     public void showPreviewCalendar() {
         setActiveButton(btnPreviewCalendar);
         if (!hasPreviewStudent()) {
-            contentArea.getChildren().setAll(createPreviewPlaceholder(
+            showContent(createPreviewPlaceholder(
                     "Pick a student to preview Calendar.",
                     "Open the Students page and choose who you want to inspect first."
             ));
@@ -140,7 +147,7 @@ public class AdminDashboardController {
                 enrollmentCatalogService, semesterPlannerService,
                 this::showPreviewEnrollment, () -> {}
         );
-        contentArea.getChildren().setAll(builder.build(enrollmentCatalogService.loadCatalog()));
+        showContent(builder.build(enrollmentCatalogService.loadCatalog()));
     }
 
     public void showPreviewEnrollmentForStudent(Student student) {
@@ -156,6 +163,7 @@ public class AdminDashboardController {
         Task<Void> syncTask = new Task<>() {
             @Override
             protected Void call() {
+                // Mirror planner selections into enrollments before opening the previewed Enrollment screen.
                 doSyncEnrollmentsForStudent(student.getStudentId());
                 return null;
             }
@@ -166,7 +174,7 @@ public class AdminDashboardController {
                     enrollmentCatalogService, semesterPlannerService,
                     this::showPreviewCalendar, () -> {}
             );
-            contentArea.getChildren().setAll(builder.build(enrollmentCatalogService.loadCatalog()));
+            showContent(builder.build(enrollmentCatalogService.loadCatalog()));
         });
 
         syncTask.setOnFailed(e -> {
@@ -182,6 +190,15 @@ public class AdminDashboardController {
         Thread t = new Thread(syncTask);
         t.setDaemon(true);
         t.start();
+    }
+
+    private void showContent(Parent content) {
+        // Match the student shell behavior so preview pages also stay pinned to the top-left.
+        StackPane.setAlignment(content, Pos.TOP_LEFT);
+        if (content instanceof Region region) {
+            region.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        }
+        contentArea.getChildren().setAll(content);
     }
 
     public void showPreviewCalendarForStudent(Student student) {
@@ -219,6 +236,7 @@ public class AdminDashboardController {
     }
 
     private void setPreviewStudent(Student student) {
+        // Preview mode reuses the same session/planner services that the student-facing screens already expect.
         previewStudent = student;
         sessionService.setCurrentStudent(student);
         semesterPlannerService.setCurrentStudent(student.getStudentId());

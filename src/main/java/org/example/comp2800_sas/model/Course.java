@@ -7,6 +7,9 @@ import lombok.Setter;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Persistent course entity and its section relationships.
+ */
 @Getter
 @Setter
 @Entity

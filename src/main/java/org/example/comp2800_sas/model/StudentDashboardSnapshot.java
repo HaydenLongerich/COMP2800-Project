@@ -2,6 +2,9 @@ package org.example.comp2800_sas.model;
 
 import java.util.List;
 
+/**
+ * Combined dashboard model containing the student's progress and upcoming sessions.
+ */
 public record StudentDashboardSnapshot(
         Integer studentId,
         String studentName,

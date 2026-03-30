@@ -32,6 +32,10 @@ import java.util.Locale;
 
 @Component
 @Scope("prototype")
+/**
+ * Builds the student Home dashboard.
+ * The page is assembled from a single snapshot so the cards all reflect the same planner state.
+ */
 public class HomeController {
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("h:mm a", Locale.US);
@@ -79,6 +83,7 @@ public class HomeController {
         Task<StudentDashboardSnapshot> task = new Task<>() {
             @Override
             protected StudentDashboardSnapshot call() {
+                // Build the full dashboard model off the FX thread, then render once on success.
                 return studentDashboardService.buildSnapshot(currentStudent.getStudentId());
             }
         };
@@ -109,8 +114,11 @@ public class HomeController {
 
         VBox content = new VBox(18);
         content.setPadding(new Insets(24));
-        content.setMaxWidth(1260);
+        content.setAlignment(Pos.TOP_LEFT);
+        content.setFillWidth(true);
+        content.setMaxWidth(Double.MAX_VALUE);
 
+        // Compose the page from a few larger sections so the dashboard stays easy to scan.
         content.getChildren().add(createHeroCard(snapshot));
 
         HBox statsRow = new HBox(14,
@@ -173,7 +181,7 @@ public class HomeController {
         VBox textBlock = new VBox(10, title, sessionChips);
         textBlock.setMaxWidth(800);
 
-        // ---------- RIGHT SIDE (FIXED LAYOUT) ----------
+        // Keep the action area a predictable width so the hero layout stays stable as the window grows.
         VBox actionBlock = new VBox(12);
         actionBlock.setAlignment(Pos.TOP_RIGHT);
         actionBlock.setPrefWidth(220);
@@ -207,7 +215,7 @@ public class HomeController {
 
         actionBlock.getChildren().addAll(enrollmentButton, calendarButton, snapshotCard);
 
-        // ---------- MAIN LAYOUT FIX ----------
+        // Push the action block to the far right while keeping the overall card aligned to the left.
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
@@ -353,6 +361,7 @@ public class HomeController {
         Label title = new Label("Next Steps");
         title.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #173b63;");
 
+        // Surface the most useful planning nudges from the snapshot instead of repeating every raw item.
         VBox sections = new VBox(12);
         sections.getChildren().add(createInsightBlock(
                 "Conflicts",
@@ -419,6 +428,7 @@ public class HomeController {
         Button remove = createActionButton("Remove", "#eef4fb", "#173b63");
         remove.setOnAction(event -> {
             semesterPlannerService.removePlannedOption(option.session(), option.planId());
+            // Reload the dashboard so every card refreshes from the same updated snapshot.
             loadHomeData();
         });
 

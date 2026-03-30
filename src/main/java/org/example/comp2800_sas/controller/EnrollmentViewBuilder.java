@@ -1,5 +1,6 @@
 package org.example.comp2800_sas.controller;
 
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
@@ -26,21 +27,30 @@ import org.example.comp2800_sas.model.EnrollmentCatalogData;
 import org.example.comp2800_sas.model.EnrollmentCatalogOption;
 import org.example.comp2800_sas.model.EnrollmentCatalogSection;
 import org.example.comp2800_sas.model.EnrollmentCatalogSummary;
+import org.example.comp2800_sas.model.PlannedCourseOption;
 import org.example.comp2800_sas.model.PlannerConflict;
 import org.example.comp2800_sas.model.PlannerMeetingBlock;
 import org.example.comp2800_sas.model.PlannerSelectionResult;
 import org.example.comp2800_sas.model.PlannerSelectionStatus;
 import org.example.comp2800_sas.service.EnrollmentCatalogService;
 import org.example.comp2800_sas.service.SemesterPlannerService;
+import javafx.util.Duration;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
+/**
+ * Builds the student Enrollment page.
+ * This class is UI-only: it renders catalog filters, course cards, and add-to-calendar actions
+ * from the already-loaded catalog and current planner snapshot.
+ */
 public class EnrollmentViewBuilder {
 
     private static final String ALL_STATUSES = "All Statuses";
@@ -120,16 +130,6 @@ public class EnrollmentViewBuilder {
 
         Button clearFilters = createActionButton("Clear Filters",
                 "-fx-background-color: #eef4fb; -fx-text-fill: #173b63;");
-        clearFilters.setOnAction(e -> {
-            currentPage[0] = 0;
-            codeSearch.clear();
-            titleSearch.clear();
-            statusFilter.setValue(ALL_STATUSES);
-            sessionFilter.setValue(ALL_SESSIONS);
-            componentFilter.setValue(ALL_COMPONENTS);
-            deliveryFilter.setValue(ALL_DELIVERY);
-            sortFilter.setValue(SORT_CODE_ASC);
-        });
 
         Button filterToggle = createActionButton(
                 "Filters",
@@ -194,9 +194,15 @@ public class EnrollmentViewBuilder {
 
         String[] feedbackMessage = new String[1];
         String[] feedbackTone = new String[]{"info"};
+        boolean[] suppressRenders = new boolean[1];
 
         Runnable[] renderRef = new Runnable[1];
         renderRef[0] = () -> {
+            // Capture planner state once per render so every button and badge uses the same snapshot.
+            Map<String, List<PlannedCourseOption>> plannedOptionsBySession = plannerService.getCurrentPlanBySession();
+            Map<String, Set<String>> plannedCourseCodesBySession = buildPlannedCourseCodesBySession(plannedOptionsBySession);
+            Map<String, Set<String>> plannedOptionKeysBySession = buildPlannedOptionKeysBySession(plannedOptionsBySession);
+
             List<EnrollmentCatalogCourse> filteredCourses = catalog.courses().stream()
                     .filter(course -> matchesCodeFilter(course, codeSearch.getText()))
                     .filter(course -> matchesTitleFilter(course, titleSearch.getText()))
@@ -258,6 +264,7 @@ public class EnrollmentViewBuilder {
             activeFilters.setManaged(!chips.isEmpty());
 
             // ── Paginated rendering ────────────────────────────────────────
+            // Render only the current page slice so large catalogs stay responsive.
             courseList.getChildren().clear();
 
             if (filteredCourses.isEmpty()) {
@@ -271,6 +278,8 @@ public class EnrollmentViewBuilder {
             for (EnrollmentCatalogCourse course : pageSlice) {
                 courseList.getChildren().add(createCourseCard(
                         course,
+                        plannedCourseCodesBySession,
+                        plannedOptionKeysBySession,
                         (message, tone) -> {
                             feedbackMessage[0] = message;
                             feedbackTone[0] = tone;
@@ -294,6 +303,34 @@ public class EnrollmentViewBuilder {
             }
         };
 
+        PauseTransition textFilterPause = new PauseTransition(Duration.millis(180));
+        textFilterPause.setOnFinished(event -> {
+            if (suppressRenders[0]) {
+                return;
+            }
+            // Debounce text filters so we do one rebuild after the user pauses typing.
+            currentPage[0] = 0;
+            renderRef[0].run();
+        });
+
+        clearFilters.setOnAction(e -> {
+            suppressRenders[0] = true;
+            try {
+                codeSearch.clear();
+                titleSearch.clear();
+                statusFilter.setValue(ALL_STATUSES);
+                sessionFilter.setValue(ALL_SESSIONS);
+                componentFilter.setValue(ALL_COMPONENTS);
+                deliveryFilter.setValue(ALL_DELIVERY);
+                sortFilter.setValue(SORT_CODE_ASC);
+            } finally {
+                suppressRenders[0] = false;
+            }
+            textFilterPause.stop();
+            currentPage[0] = 0;
+            renderRef[0].run();
+        });
+
         filterToggle.setOnAction(e -> {
             boolean open = filterPanel.isVisible();
             filterPanel.setVisible(!open);
@@ -301,13 +338,51 @@ public class EnrollmentViewBuilder {
         });
 
         // ── Listeners reset to page 0 before re-rendering ────────────────
-        codeSearch.textProperty().addListener((obs, o, n) -> { currentPage[0] = 0; renderRef[0].run(); });
-        titleSearch.textProperty().addListener((obs, o, n) -> { currentPage[0] = 0; renderRef[0].run(); });
-        statusFilter.valueProperty().addListener((obs, o, n) -> { currentPage[0] = 0; renderRef[0].run(); });
-        sessionFilter.valueProperty().addListener((obs, o, n) -> { currentPage[0] = 0; renderRef[0].run(); });
-        componentFilter.valueProperty().addListener((obs, o, n) -> { currentPage[0] = 0; renderRef[0].run(); });
-        deliveryFilter.valueProperty().addListener((obs, o, n) -> { currentPage[0] = 0; renderRef[0].run(); });
-        sortFilter.valueProperty().addListener((obs, o, n) -> { currentPage[0] = 0; renderRef[0].run(); });
+        codeSearch.textProperty().addListener((obs, o, n) -> {
+            if (!suppressRenders[0]) {
+                textFilterPause.playFromStart();
+            }
+        });
+        titleSearch.textProperty().addListener((obs, o, n) -> {
+            if (!suppressRenders[0]) {
+                textFilterPause.playFromStart();
+            }
+        });
+        statusFilter.valueProperty().addListener((obs, o, n) -> {
+            if (!suppressRenders[0]) {
+                textFilterPause.stop();
+                currentPage[0] = 0;
+                renderRef[0].run();
+            }
+        });
+        sessionFilter.valueProperty().addListener((obs, o, n) -> {
+            if (!suppressRenders[0]) {
+                textFilterPause.stop();
+                currentPage[0] = 0;
+                renderRef[0].run();
+            }
+        });
+        componentFilter.valueProperty().addListener((obs, o, n) -> {
+            if (!suppressRenders[0]) {
+                textFilterPause.stop();
+                currentPage[0] = 0;
+                renderRef[0].run();
+            }
+        });
+        deliveryFilter.valueProperty().addListener((obs, o, n) -> {
+            if (!suppressRenders[0]) {
+                textFilterPause.stop();
+                currentPage[0] = 0;
+                renderRef[0].run();
+            }
+        });
+        sortFilter.valueProperty().addListener((obs, o, n) -> {
+            if (!suppressRenders[0]) {
+                textFilterPause.stop();
+                currentPage[0] = 0;
+                renderRef[0].run();
+            }
+        });
 
         renderRef[0].run();
 
@@ -468,6 +543,8 @@ public class EnrollmentViewBuilder {
 
     private VBox createCourseCard(
             EnrollmentCatalogCourse course,
+            Map<String, Set<String>> plannedCourseCodesBySession,
+            Map<String, Set<String>> plannedOptionKeysBySession,
             java.util.function.BiConsumer<String, String> showFeedback,
             Runnable refreshView
     ) {
@@ -489,10 +566,17 @@ public class EnrollmentViewBuilder {
         summary.setWrapText(true);
         summary.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px;");
 
+        boolean hasOpenOfferings = catalogService.hasOpenOffering(course);
+        int sectionCount = countSections(course);
+        boolean includesLab = hasLabComponent(course);
+        List<String> modalities = collectCourseModalities(course);
+        String formattedComponents = fallback(catalogService.formatComponents(course.components()), "N/A");
+
+        // Precompute commonly reused course facts once for this card instead of recalculating them in several places.
         FlowPane badges = new FlowPane(8, 8);
         badges.getChildren().add(createBadge(
-                catalogService.hasOpenOffering(course) ? "Open Offerings" : "Closed Offerings",
-                catalogService.hasOpenOffering(course)
+                hasOpenOfferings ? "Open Offerings" : "Closed Offerings",
+                hasOpenOfferings
                         ? "-fx-background-color: #dcf5e5; -fx-text-fill: #1a6b3d;"
                         : "-fx-background-color: #fde7e7; -fx-text-fill: #9f3030;"
         ));
@@ -501,18 +585,18 @@ public class EnrollmentViewBuilder {
                 "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"
         ));
         badges.getChildren().add(createBadge(
-                countSections(course) + " section" + pluralize(countSections(course)),
+                sectionCount + " section" + pluralize(sectionCount),
                 "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"
         ));
 
-        if (hasLabComponent(course)) {
+        if (includesLab) {
             badges.getChildren().add(createBadge(
                     "Includes Lab",
                     "-fx-background-color: #fdf2d6; -fx-text-fill: #8d6200;"
             ));
         }
 
-        for (String modality : collectCourseModalities(course)) {
+        for (String modality : modalities) {
             badges.getChildren().add(createBadge(modality, modalityBadgeStyle(modality)));
         }
 
@@ -542,7 +626,7 @@ public class EnrollmentViewBuilder {
         metadata.getChildren().addAll(
                 createDetailBlock("Units", fallback(course.units(), "N/A")),
                 createDetailBlock("Grading", fallback(course.grading(), "N/A")),
-                createDetailBlock("Components", fallback(catalogService.formatComponents(course.components()), "N/A")),
+                createDetailBlock("Components", formattedComponents),
                 createDetailBlock("Career", fallback(course.courseCareer(), "N/A")),
                 createDetailBlock("Class Options", String.valueOf(course.optionCount()))
         );
@@ -568,12 +652,20 @@ public class EnrollmentViewBuilder {
             offeringsBox.getChildren().add(noOptions);
         } else {
             for (EnrollmentCatalogOption option : course.options()) {
-                offeringsBox.getChildren().add(createOptionCard(course, option, showFeedback, refreshView));
+                offeringsBox.getChildren().add(createOptionCard(
+                        course,
+                        option,
+                        plannedCourseCodesBySession,
+                        plannedOptionKeysBySession,
+                        showFeedback,
+                        refreshView
+                ));
             }
         }
 
         toggleButton.setOnAction(e -> {
             preserveScrollPosition(toggleButton, () -> {
+                // Preserve scroll so expanding a course does not jump the user back up the page.
                 boolean open = offeringsBox.isVisible();
                 offeringsBox.setVisible(!open);
                 offeringsBox.setManaged(!open);
@@ -595,6 +687,12 @@ public class EnrollmentViewBuilder {
         detailsStage.setTitle(fallback(course.courseCode(), "Course Details"));
         detailsStage.setMinWidth(820);
         detailsStage.setMinHeight(620);
+
+        boolean hasOpenOfferings = catalogService.hasOpenOffering(course);
+        int sectionCount = countSections(course);
+        boolean includesLab = hasLabComponent(course);
+        List<String> modalities = collectCourseModalities(course);
+        String formattedComponents = fallback(catalogService.formatComponents(course.components()), "N/A");
 
         Label code = new Label(fallback(course.courseCode(), "TBA"));
         code.setStyle("-fx-text-fill: #1c4a86; -fx-font-size: 12px; -fx-font-weight: bold;");
@@ -621,8 +719,8 @@ public class EnrollmentViewBuilder {
 
         FlowPane badges = new FlowPane(8, 8);
         badges.getChildren().add(createBadge(
-                catalogService.hasOpenOffering(course) ? "Open" : "Closed",
-                catalogService.hasOpenOffering(course)
+                hasOpenOfferings ? "Open" : "Closed",
+                hasOpenOfferings
                         ? "-fx-background-color: #dcf5e5; -fx-text-fill: #1a6b3d;"
                         : "-fx-background-color: #fde7e7; -fx-text-fill: #9f3030;"
         ));
@@ -631,16 +729,16 @@ public class EnrollmentViewBuilder {
                 "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"
         ));
         badges.getChildren().add(createBadge(
-                countSections(course) + " section" + pluralize(countSections(course)),
+                sectionCount + " section" + pluralize(sectionCount),
                 "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"
         ));
-        if (hasLabComponent(course)) {
+        if (includesLab) {
             badges.getChildren().add(createBadge(
                     "Includes Lab",
                     "-fx-background-color: #fdf2d6; -fx-text-fill: #8d6200;"
             ));
         }
-        for (String modality : collectCourseModalities(course)) {
+        for (String modality : modalities) {
             badges.getChildren().add(createBadge(modality, modalityBadgeStyle(modality)));
         }
 
@@ -657,9 +755,9 @@ public class EnrollmentViewBuilder {
                 createDetailBlock("Course Title", fallback(course.courseName(), "N/A")),
                 createDetailBlock("Units", fallback(course.units(), "N/A")),
                 createDetailBlock("Grading", fallback(course.grading(), "N/A")),
-                createDetailBlock("Components", fallback(catalogService.formatComponents(course.components()), "N/A")),
+                createDetailBlock("Components", formattedComponents),
                 createDetailBlock("Career", fallback(course.courseCareer(), "N/A")),
-                createDetailBlock("Status", catalogService.hasOpenOffering(course) ? "Open" : "Closed"),
+                createDetailBlock("Status", hasOpenOfferings ? "Open" : "Closed"),
                 createDetailBlock("Sessions", summarizeSessions(course))
         );
 
@@ -758,6 +856,8 @@ public class EnrollmentViewBuilder {
     private VBox createOptionCard(
             EnrollmentCatalogCourse course,
             EnrollmentCatalogOption option,
+            Map<String, Set<String>> plannedCourseCodesBySession,
+            Map<String, Set<String>> plannedOptionKeysBySession,
             java.util.function.BiConsumer<String, String> showFeedback,
             Runnable refreshView
     ) {
@@ -793,15 +893,12 @@ public class EnrollmentViewBuilder {
                 "-fx-background-color: #eef4fb; -fx-text-fill: #31506f;"
         ));
 
-        boolean optionPlanned = plannerService.isOptionPlanned(
-                fallback(option.session(), "Unscheduled"),
-                fallback(course.courseCode(), "TBA"),
-                fallback(option.optionNumber(), "N/A")
-        );
-        boolean courseAlreadyPlanned = plannerService.hasCoursePlannedInSession(
-                fallback(option.session(), "Unscheduled"),
-                fallback(course.courseCode(), "TBA")
-        );
+        // Use the planner snapshot gathered during the render instead of querying planner state for every row.
+        String sessionKey = normalize(fallback(option.session(), "Unscheduled"));
+        Set<String> plannedCourseCodes = plannedCourseCodesBySession.getOrDefault(sessionKey, Set.of());
+        Set<String> plannedOptionKeys = plannedOptionKeysBySession.getOrDefault(sessionKey, Set.of());
+        boolean optionPlanned = plannedOptionKeys.contains(buildPlannedOptionKey(course.courseCode(), option.optionNumber()));
+        boolean courseAlreadyPlanned = plannedCourseCodes.contains(normalize(course.courseCode()));
 
         Button optionPlanButton = createActionButton(
                 option.sections().isEmpty() ? "No Sections" : optionPlanned ? "Already Added" : courseAlreadyPlanned ? "Replace in Calendar" : "Add to Calendar",
@@ -959,12 +1056,54 @@ public class EnrollmentViewBuilder {
         conflictValue.setText(String.valueOf(plannerService.getTotalConflictCount()));
     }
 
+    private Map<String, Set<String>> buildPlannedCourseCodesBySession(
+            Map<String, List<PlannedCourseOption>> plannedOptionsBySession
+    ) {
+        // Fast lookup for "is this course already planned in this session?" button states.
+        Map<String, Set<String>> index = new LinkedHashMap<>();
+        for (Map.Entry<String, List<PlannedCourseOption>> entry : plannedOptionsBySession.entrySet()) {
+            for (PlannedCourseOption option : entry.getValue()) {
+                addToSessionIndex(index, entry.getKey(), normalize(option.courseCode()));
+            }
+        }
+        return index;
+    }
+
+    private Map<String, Set<String>> buildPlannedOptionKeysBySession(
+            Map<String, List<PlannedCourseOption>> plannedOptionsBySession
+    ) {
+        // Separate index for exact option matches so we can distinguish duplicate vs. replace actions.
+        Map<String, Set<String>> index = new LinkedHashMap<>();
+        for (Map.Entry<String, List<PlannedCourseOption>> entry : plannedOptionsBySession.entrySet()) {
+            for (PlannedCourseOption option : entry.getValue()) {
+                addToSessionIndex(
+                        index,
+                        entry.getKey(),
+                        buildPlannedOptionKey(option.courseCode(), option.optionNumber())
+                );
+            }
+        }
+        return index;
+    }
+
+    private void addToSessionIndex(Map<String, Set<String>> index, String session, String value) {
+        if (!hasText(value)) {
+            return;
+        }
+        index.computeIfAbsent(normalize(session), key -> new LinkedHashSet<>()).add(value);
+    }
+
+    private String buildPlannedOptionKey(String courseCode, String optionNumber) {
+        return normalize(courseCode) + "|" + normalize(optionNumber);
+    }
+
     private List<String> buildDeliveryFilters(EnrollmentCatalogData catalog) {
         List<String> filters = new ArrayList<>();
+        Set<String> seenFilters = new LinkedHashSet<>();
         filters.add(ALL_DELIVERY);
         for (EnrollmentCatalogCourse course : catalog.courses()) {
             for (String modality : collectCourseModalities(course)) {
-                if (!filters.contains(modality)) {
+                if (seenFilters.add(modality)) {
                     filters.add(modality);
                 }
             }
@@ -1242,6 +1381,7 @@ public class EnrollmentViewBuilder {
     }
 
     private void preserveScrollPosition(Node sourceNode, Runnable action) {
+        // Remember every ancestor scroll pane before mutating the layout so expanded cards feel stable.
         List<ScrollPane> scrollPanes = new ArrayList<>();
         List<Double> verticalValues = new ArrayList<>();
         List<Double> horizontalValues = new ArrayList<>();

@@ -26,6 +26,11 @@ import java.util.Optional;
 
 @Service
 @Transactional
+/**
+ * Owns the student's draft calendar state.
+ * It resolves saved planner selections against the current catalog, exposes
+ * session-level planner views, and caches derived metrics so the UI can render quickly.
+ */
 public class SemesterPlannerService {
 
     private final PlannerSelectionRepository plannerSelectionRepository;
@@ -34,6 +39,7 @@ public class SemesterPlannerService {
 
     private Integer currentStudentId;
     private Map<String, List<PlannedCourseOption>> resolvedPlansCache;
+    private PlannerMetrics plannerMetricsCache;
 
     public SemesterPlannerService(
             PlannerSelectionRepository plannerSelectionRepository,
@@ -61,6 +67,11 @@ public class SemesterPlannerService {
             return Map.of();
         }
         return copyPlans(loadResolvedPlans(studentId));
+    }
+
+    @Transactional(readOnly = true)
+    public synchronized Map<String, List<PlannedCourseOption>> getCurrentPlanBySession() {
+        return copyPlans(getResolvedPlans());
     }
 
     @Transactional(readOnly = true)
@@ -93,6 +104,7 @@ public class SemesterPlannerService {
             return new PlannerSelectionResult(PlannerSelectionStatus.DUPLICATE, plannedOption, List.of());
         }
 
+        // Compute conflicts against the would-be plan before saving so the UI can show immediate feedback.
         List<PlannedCourseOption> previewPlan = new ArrayList<>(getPlanForSession(plannedOption.session()));
         previewPlan.removeIf(existing -> sameValue(existing.courseCode(), plannedOption.courseCode()));
         previewPlan.add(plannedOption);
@@ -196,7 +208,8 @@ public class SemesterPlannerService {
 
     @Transactional(readOnly = true)
     public synchronized List<PlannerConflict> getConflictsForSession(String session) {
-        return PlannerScheduleUtils.detectConflicts(getPlanForSession(session));
+        SessionMetrics sessionMetrics = getPlannerMetrics().sessions().get(session);
+        return sessionMetrics == null ? List.of() : sessionMetrics.conflicts();
     }
 
     @Transactional(readOnly = true)
@@ -213,16 +226,13 @@ public class SemesterPlannerService {
 
     @Transactional(readOnly = true)
     public synchronized int getTotalConflictCount() {
-        return getResolvedPlans().keySet().stream()
-                .mapToInt(session -> PlannerScheduleUtils.detectConflicts(getPlanForSession(session)).size())
-                .sum();
+        return getPlannerMetrics().totalConflictCount();
     }
 
     @Transactional(readOnly = true)
     public synchronized double getTotalUnitsForSession(String session) {
-        return getPlanForSession(session).stream()
-                .mapToDouble(option -> parseUnits(option.units()))
-                .sum();
+        SessionMetrics sessionMetrics = getPlannerMetrics().sessions().get(session);
+        return sessionMetrics == null ? 0 : sessionMetrics.totalUnits();
     }
 
     private Map<String, List<PlannedCourseOption>> getResolvedPlans() {
@@ -230,6 +240,7 @@ public class SemesterPlannerService {
             return Map.of();
         }
 
+        // Resolve the current student's saved selections only once until planner state changes.
         if (resolvedPlansCache == null) {
             resolvedPlansCache = loadResolvedPlans(currentStudentId);
         }
@@ -237,10 +248,44 @@ public class SemesterPlannerService {
         return resolvedPlansCache;
     }
 
+    private PlannerMetrics getPlannerMetrics() {
+        if (currentStudentId == null) {
+            return PlannerMetrics.empty();
+        }
+
+        // Conflict detection and unit totals are reused heavily by Home, Enrollment, and Calendar.
+        if (plannerMetricsCache == null) {
+            plannerMetricsCache = buildPlannerMetrics(getResolvedPlans());
+        }
+
+        return plannerMetricsCache;
+    }
+
+    private PlannerMetrics buildPlannerMetrics(Map<String, List<PlannedCourseOption>> plansBySession) {
+        Map<String, SessionMetrics> sessionMetrics = new LinkedHashMap<>();
+        int totalConflictCount = 0;
+
+        for (Map.Entry<String, List<PlannedCourseOption>> entry : plansBySession.entrySet()) {
+            List<PlannerConflict> conflicts = PlannerScheduleUtils.detectConflicts(entry.getValue());
+            double totalUnits = entry.getValue().stream()
+                    .mapToDouble(option -> parseUnits(option.units()))
+                    .sum();
+
+            sessionMetrics.put(
+                    entry.getKey(),
+                    new SessionMetrics(List.copyOf(conflicts), totalUnits)
+            );
+            totalConflictCount += conflicts.size();
+        }
+
+        return new PlannerMetrics(Collections.unmodifiableMap(sessionMetrics), totalConflictCount);
+    }
+
     private Map<String, List<PlannedCourseOption>> loadResolvedPlans(Integer studentId) {
         EnrollmentCatalogData catalog = enrollmentCatalogService.loadCatalog();
         Map<String, List<PlannedCourseOption>> plansBySession = new LinkedHashMap<>();
 
+        // Rebuild saved planner rows into rich UI-ready options using the latest catalog snapshot.
         for (PlannerSelection selection : plannerSelectionRepository
                 .findByStudent_StudentIdOrderBySessionNameAscCourseCodeAsc(studentId)) {
             PlannedCourseOption plannedOption = resolvePlannedOption(selection, catalog);
@@ -286,6 +331,7 @@ public class SemesterPlannerService {
 
     private void invalidatePlanCache() {
         resolvedPlansCache = null;
+        plannerMetricsCache = null;
     }
 
     private Map<String, List<PlannedCourseOption>> copyPlans(Map<String, List<PlannedCourseOption>> source) {
@@ -334,5 +380,14 @@ public class SemesterPlannerService {
     }
 
     private record PlanKey(String session, String courseCode, String optionNumber) {
+    }
+
+    private record SessionMetrics(List<PlannerConflict> conflicts, double totalUnits) {
+    }
+
+    private record PlannerMetrics(Map<String, SessionMetrics> sessions, int totalConflictCount) {
+        private static PlannerMetrics empty() {
+            return new PlannerMetrics(Map.of(), 0);
+        }
     }
 }

@@ -2,6 +2,9 @@ package org.example.comp2800_sas.model;
 
 import java.util.List;
 
+/**
+ * Flattened course row used by course browsing and reporting views.
+ */
 public record CourseBrowserEntry(
         Integer courseId,
         String courseCode,

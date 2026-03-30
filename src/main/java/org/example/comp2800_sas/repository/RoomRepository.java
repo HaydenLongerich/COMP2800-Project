@@ -5,6 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 
+/**
+ * JPA repository for room records.
+ */
 public interface RoomRepository extends JpaRepository<Room, Integer> {
     Optional<Room> findByBuildingAndRoomNumber(String building, String roomNumber);
 }

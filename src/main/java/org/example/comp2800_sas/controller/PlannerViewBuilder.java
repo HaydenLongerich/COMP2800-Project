@@ -1,5 +1,6 @@
 package org.example.comp2800_sas.controller;
 
+import javafx.animation.PauseTransition;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -25,6 +26,7 @@ import org.example.comp2800_sas.model.PlannerSelectionStatus;
 import org.example.comp2800_sas.service.EnrollmentCatalogService;
 import org.example.comp2800_sas.service.SemesterPlannerService;
 import org.example.comp2800_sas.util.PlannerScheduleUtils;
+import javafx.util.Duration;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -36,6 +38,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+/**
+ * Builds the Calendar page.
+ * The page combines planner state, conflicts, a weekly grid, and a lightweight
+ * quick-add catalog sidebar for the currently selected session.
+ */
 public class PlannerViewBuilder {
 
     private static final String SURFACE_CARD_STYLE =
@@ -81,11 +88,13 @@ public class PlannerViewBuilder {
         pageScroll.setFitToWidth(true);
         pageScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         pageScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+        pageScroll.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
 
         VBox wrapper = new VBox(18);
         wrapper.setPadding(new Insets(24));
-        wrapper.setMaxWidth(1260);
+        wrapper.setAlignment(Pos.TOP_LEFT);
         wrapper.setFillWidth(true);
+        wrapper.setMaxWidth(Double.MAX_VALUE);
 
         Label title = new Label("Semester Calendar");
         title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #173b63;");
@@ -163,6 +172,7 @@ public class PlannerViewBuilder {
         String[] feedbackTone    = new String[]{"info"};
 
         HBox mainSplit = new HBox(18);
+        mainSplit.setAlignment(Pos.TOP_LEFT);
         VBox.setVgrow(mainSplit, Priority.ALWAYS);
 
         VBox calendarColumn = new VBox(16);
@@ -192,9 +202,12 @@ public class PlannerViewBuilder {
             String session = sessionSelector.getValue();
             List<PlannedCourseOption> plannedOptions = plannerService.getPlanForSession(session);
             List<PlannerConflict> conflicts          = plannerService.getConflictsForSession(session);
+            // Reuse fast lookup sets while rendering the quick-add sidebar.
+            Set<String> plannedCourseCodes = buildPlannedCourseCodes(plannedOptions);
+            Set<String> plannedOptionKeys = buildPlannedOptionKeys(plannedOptions);
 
-            plannedCountValue.setText(String.valueOf(plannerService.getPlannedCountForSession(session)));
-            plannedUnitsValue.setText(formatUnits(plannerService.getTotalUnitsForSession(session)));
+            plannedCountValue.setText(String.valueOf(plannedOptions.size()));
+            plannedUnitsValue.setText(formatUnits(totalUnits(plannedOptions)));
             conflictValue.setText(String.valueOf(conflicts.size()));
 
             feedbackHost.getChildren().clear();
@@ -220,6 +233,8 @@ public class PlannerViewBuilder {
                     createQuickAddCard(
                             catalog,
                             session,
+                            plannedCourseCodes,
+                            plannedOptionKeys,
                             quickSearch.getText(),
                             statusFilter.getValue(),
                             componentFilter.getValue(),
@@ -233,11 +248,27 @@ public class PlannerViewBuilder {
             );
         };
 
-        sessionSelector.valueProperty().addListener((obs, o, n) -> renderRef[0].run());
-        quickSearch.textProperty().addListener((obs, o, n) -> renderRef[0].run());
-        statusFilter.valueProperty().addListener((obs, o, n) -> renderRef[0].run());
-        componentFilter.valueProperty().addListener((obs, o, n) -> renderRef[0].run());
-        deliveryFilter.valueProperty().addListener((obs, o, n) -> renderRef[0].run());
+        PauseTransition searchPause = new PauseTransition(Duration.millis(180));
+        // Delay text search a touch so the calendar is not rebuilt on every single keystroke.
+        searchPause.setOnFinished(event -> renderRef[0].run());
+
+        sessionSelector.valueProperty().addListener((obs, o, n) -> {
+            searchPause.stop();
+            renderRef[0].run();
+        });
+        quickSearch.textProperty().addListener((obs, o, n) -> searchPause.playFromStart());
+        statusFilter.valueProperty().addListener((obs, o, n) -> {
+            searchPause.stop();
+            renderRef[0].run();
+        });
+        componentFilter.valueProperty().addListener((obs, o, n) -> {
+            searchPause.stop();
+            renderRef[0].run();
+        });
+        deliveryFilter.valueProperty().addListener((obs, o, n) -> {
+            searchPause.stop();
+            renderRef[0].run();
+        });
 
         renderRef[0].run();
         pageScroll.setContent(wrapper);
@@ -370,6 +401,8 @@ public class PlannerViewBuilder {
     private VBox createQuickAddCard(
             EnrollmentCatalogData catalog,
             String session,
+            Set<String> plannedCourseCodes,
+            Set<String> plannedOptionKeys,
             String query,
             String statusFilter,
             String componentFilter,
@@ -425,7 +458,7 @@ public class PlannerViewBuilder {
             empty.setStyle("-fx-text-fill: #607286; -fx-font-size: 12px;");
             results.getChildren().add(empty);
         } else {
-            // ── Cap results to keep the FX thread free ────────────────────
+            // Keep the sidebar intentionally capped so quick-add never dominates the whole page render.
             List<EnrollmentCatalogCourse> cappedCourses = filteredCourses.stream()
                     .limit(QUICK_ADD_CAP)
                     .toList();
@@ -464,8 +497,9 @@ public class PlannerViewBuilder {
                         continue;
                     }
 
-                    boolean planned            = plannerService.isOptionPlanned(session, course.courseCode(), option.optionNumber());
-                    boolean courseAlreadyPlanned = plannerService.hasCoursePlannedInSession(session, course.courseCode());
+                    // These button states come from the current session snapshot gathered once in renderRef.
+                    boolean planned = plannedOptionKeys.contains(buildPlannedOptionKey(course.courseCode(), option.optionNumber()));
+                    boolean courseAlreadyPlanned = plannedCourseCodes.contains(normalize(course.courseCode()));
                     HBox row = new HBox(8);
                     row.setAlignment(Pos.CENTER_LEFT);
 
@@ -609,6 +643,7 @@ public class PlannerViewBuilder {
 
         int totalHeight = (int) Math.round((DAY_END_MINUTES - DAY_START_MINUTES) * PIXELS_PER_MINUTE);
 
+        // Build a fixed weekday header row that stays aligned with the scrollable calendar grid below it.
         HBox dayHeader = new HBox(10);
         Region timeSpacer = new Region();
         timeSpacer.setMinWidth(TIME_COLUMN_WIDTH);
@@ -776,7 +811,44 @@ public class PlannerViewBuilder {
         return String.format(Locale.US, "%.2f", units);
     }
 
+    private double totalUnits(List<PlannedCourseOption> plannedOptions) {
+        return plannedOptions.stream()
+                .mapToDouble(option -> parseUnits(option.units()))
+                .sum();
+    }
+
+    private double parseUnits(String units) {
+        try {
+            return Double.parseDouble(units);
+        } catch (NumberFormatException exception) {
+            return 0;
+        }
+    }
+
+    private Set<String> buildPlannedCourseCodes(List<PlannedCourseOption> plannedOptions) {
+        // These normalized course codes let quick-add disable whole courses that are already on the draft calendar.
+        Set<String> plannedCourseCodes = new LinkedHashSet<>();
+        for (PlannedCourseOption option : plannedOptions) {
+            plannedCourseCodes.add(normalize(option.courseCode()));
+        }
+        return plannedCourseCodes;
+    }
+
+    private Set<String> buildPlannedOptionKeys(List<PlannedCourseOption> plannedOptions) {
+        // Track each exact course/option pair so the UI can distinguish "already added" from "same course, different option."
+        Set<String> plannedOptionKeys = new LinkedHashSet<>();
+        for (PlannedCourseOption option : plannedOptions) {
+            plannedOptionKeys.add(buildPlannedOptionKey(option.courseCode(), option.optionNumber()));
+        }
+        return plannedOptionKeys;
+    }
+
+    private String buildPlannedOptionKey(String courseCode, String optionNumber) {
+        return normalize(courseCode) + "|" + normalize(optionNumber);
+    }
+
     private void decorateDayPane(Pane dayPane, int totalHeight) {
+        // Draw hourly guide lines once so individual meeting blocks can simply layer on top.
         for (int y = 0; y <= totalHeight; y += HOUR_HEIGHT) {
             Region line = new Region();
             line.setLayoutY(y);

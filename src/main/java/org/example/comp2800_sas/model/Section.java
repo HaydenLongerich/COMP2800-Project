@@ -7,6 +7,9 @@ import lombok.Setter;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Persistent course section with links to semester, room, and instructor data.
+ */
 @Getter
 @Setter
 @Entity

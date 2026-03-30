@@ -7,6 +7,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Service layer for creating, updating, and listing courses.
+ */
 @Service
 @Transactional
 public class CourseService {
