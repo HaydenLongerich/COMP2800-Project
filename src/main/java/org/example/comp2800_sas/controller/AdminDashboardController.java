@@ -31,11 +31,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 @Component
-/**
- * Admin shell controller.
- * Besides normal admin navigation, this controller also supports "preview as student"
- * flows so admins can open Enrollment and Calendar with a selected student's planner state.
- */
+// Admin shell controller.
 public class AdminDashboardController {
 
     @Autowired private ConfigurableApplicationContext applicationContext;
@@ -56,6 +52,7 @@ public class AdminDashboardController {
     @FXML private Button btnPreviewCalendar;
 
     private Student previewStudent;
+    private String currentView = "";
 
     public void setAdmin(Admin admin) {
         adminNameLabel.setText(admin.getName());
@@ -102,22 +99,26 @@ public class AdminDashboardController {
     }
 
     @FXML public void showStudents() {
+        currentView = "students";
         setActiveButton(btnStudents);
         loadScreen("/admin_students.fxml");
     }
 
     @FXML public void showEnrollments() {
+        currentView = "enrollments";
         setActiveButton(btnEnrollments);
         loadScreen("/admin_enrollments.fxml");
     }
 
     @FXML public void showSections() {
+        currentView = "sections";
         setActiveButton(btnSections);
         loadScreen("/admin_sections.fxml");
     }
 
     @FXML
     public void showPreviewEnrollment() {
+        currentView = "previewEnrollment";
         setActiveButton(btnPreviewEnrollment);
         if (!hasPreviewStudent()) {
             showContent(createPreviewPlaceholder(
@@ -126,15 +127,17 @@ public class AdminDashboardController {
             ));
             return;
         }
+        semesterPlannerService.refreshCatalogState();
         EnrollmentViewBuilder builder = new EnrollmentViewBuilder(
                 enrollmentCatalogService, semesterPlannerService,
-                this::showPreviewCalendar, () -> {}
+                this::showPreviewCalendar, this::handlePlannerUpdated
         );
         showContent(builder.build(enrollmentCatalogService.loadCatalog()));
     }
 
     @FXML
     public void showPreviewCalendar() {
+        currentView = "previewCalendar";
         setActiveButton(btnPreviewCalendar);
         if (!hasPreviewStudent()) {
             showContent(createPreviewPlaceholder(
@@ -143,15 +146,17 @@ public class AdminDashboardController {
             ));
             return;
         }
+        semesterPlannerService.refreshCatalogState();
         PlannerViewBuilder builder = new PlannerViewBuilder(
                 enrollmentCatalogService, semesterPlannerService,
-                this::showPreviewEnrollment, () -> {}
+                this::showPreviewEnrollment, this::handlePlannerUpdated
         );
         showContent(builder.build(enrollmentCatalogService.loadCatalog()));
     }
 
     public void showPreviewEnrollmentForStudent(Student student) {
         setPreviewStudent(student);
+        currentView = "previewEnrollment";
         setActiveButton(btnPreviewEnrollment);
 
         StackPane spinnerPane = new StackPane();
@@ -172,7 +177,7 @@ public class AdminDashboardController {
         syncTask.setOnSucceeded(e -> {
             EnrollmentViewBuilder builder = new EnrollmentViewBuilder(
                     enrollmentCatalogService, semesterPlannerService,
-                    this::showPreviewCalendar, () -> {}
+                    this::showPreviewCalendar, this::handlePlannerUpdated
             );
             showContent(builder.build(enrollmentCatalogService.loadCatalog()));
         });
@@ -206,9 +211,14 @@ public class AdminDashboardController {
         showPreviewCalendar();
     }
 
-    /**
-     * Strips spaces from course codes before lookup so "COMP 1047" matches "COMP1047".
-     */
+    private void handlePlannerUpdated() {
+        semesterPlannerService.refreshCatalogState();
+        if ("previewCalendar".equals(currentView)) {
+            showPreviewCalendar();
+        }
+    }
+
+    // Strips spaces from course codes before lookup so "COMP 1047" matches "COMP1047".
     private void doSyncEnrollmentsForStudent(Integer studentId) {
         List<PlannerSelection> selections =
                 plannerSelectionRepository.findByStudent_StudentIdOrderBySessionNameAscCourseCodeAsc(studentId);

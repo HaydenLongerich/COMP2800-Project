@@ -3,9 +3,7 @@ package org.example.comp2800_sas.model;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/**
- * Immutable section-level meeting, instructor, and room details inside a catalog option.
- */
+// Immutable section-level meeting, instructor, and room details inside a catalog option.
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record EnrollmentCatalogSection(
         @JsonProperty("section_type") String sectionType,

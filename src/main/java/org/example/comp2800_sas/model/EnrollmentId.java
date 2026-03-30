@@ -9,9 +9,7 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.util.Objects;
 
-/**
- * Composite key for identifying a student's enrollment in a specific section.
- */
+// Composite key for identifying a student's enrollment in a specific section.
 @Setter
 @Getter
 @Embeddable

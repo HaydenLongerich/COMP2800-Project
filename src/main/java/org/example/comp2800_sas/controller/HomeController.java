@@ -32,10 +32,7 @@ import java.util.Locale;
 
 @Component
 @Scope("prototype")
-/**
- * Builds the student Home dashboard.
- * The page is assembled from a single snapshot so the cards all reflect the same planner state.
- */
+// Builds the student Home dashboard.
 public class HomeController {
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("h:mm a", Locale.US);

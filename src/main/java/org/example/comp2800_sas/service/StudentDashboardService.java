@@ -17,9 +17,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Builds the aggregated snapshot shown on the student home dashboard.
- */
+// Builds the aggregated snapshot shown on the student home dashboard.
 @Service
 @Transactional(readOnly = true)
 public class StudentDashboardService {

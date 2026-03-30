@@ -4,9 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-/**
- * Persistent semester record used to group sections and planner sessions.
- */
+// Persistent semester record used to group sections and planner sessions.
 @Getter
 @Setter
 @Entity

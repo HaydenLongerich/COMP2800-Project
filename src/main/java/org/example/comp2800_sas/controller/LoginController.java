@@ -20,9 +20,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
-/**
- * JavaFX controller for the login screen and session handoff.
- */
+// JavaFX controller for the login screen and session handoff.
 @Component
 public class LoginController {
 

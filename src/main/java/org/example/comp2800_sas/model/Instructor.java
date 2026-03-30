@@ -7,9 +7,7 @@ import lombok.Setter;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Persistent instructor record.
- */
+// Persistent instructor record.
 @Getter
 @Setter
 @Entity

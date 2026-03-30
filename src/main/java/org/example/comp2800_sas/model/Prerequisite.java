@@ -4,9 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-/**
- * Persistent prerequisite relationship between two courses.
- */
+// Persistent prerequisite relationship between two courses.
 @Getter
 @Setter
 @Entity

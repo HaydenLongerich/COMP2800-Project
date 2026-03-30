@@ -6,9 +6,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 
-/**
- * Persistent enrollment record tying a student to a section.
- */
+// Persistent enrollment record tying a student to a section.
 @Getter
 @Setter
 @Entity

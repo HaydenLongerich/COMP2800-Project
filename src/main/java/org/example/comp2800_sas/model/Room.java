@@ -13,9 +13,7 @@ import lombok.Setter;
                 @UniqueConstraint(columnNames = {"building", "room_number"})
         }
 )
-/**
- * Persistent classroom or meeting-room record.
- */
+// Persistent classroom or meeting-room record.
 public class Room {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

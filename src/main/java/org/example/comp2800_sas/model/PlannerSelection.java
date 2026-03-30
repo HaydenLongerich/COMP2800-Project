@@ -14,9 +14,7 @@ import lombok.Setter;
                 columnNames = {"student_id", "session_name", "course_code"}
         )
 )
-/**
- * Persistent saved planner selection for a student's draft calendar.
- */
+// Persistent saved planner selection for a student's draft calendar.
 public class PlannerSelection {
 
     @Id

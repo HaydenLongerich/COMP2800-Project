@@ -21,11 +21,7 @@ import java.util.Locale;
 import java.util.Objects;
 
 @Service
-/**
- * Centralized reader/writer for the uploaded course catalog JSON.
- * The service also keeps a lightweight in-memory cache so repeated screen loads
- * do not reparse the same file unless the file timestamp changes.
- */
+// Centralized reader/writer for the uploaded course catalog JSON.
 public class EnrollmentCatalogService {
 
     private static final String CATALOG_FILE_NAME = "COMP COURSES FINAL.json";

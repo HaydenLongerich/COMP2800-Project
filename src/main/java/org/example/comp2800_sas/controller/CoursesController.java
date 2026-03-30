@@ -22,9 +22,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * JavaFX controller for the course catalog browser screen.
- */
+// JavaFX controller for the course catalog browser screen.
 @Component
 @Scope("prototype")
 public class CoursesController {

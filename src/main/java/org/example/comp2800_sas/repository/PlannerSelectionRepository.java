@@ -8,9 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * JPA repository for saved planner selections.
- */
+// JPA repository for saved planner selections.
 public interface PlannerSelectionRepository extends JpaRepository<PlannerSelection, Long> {
     List<PlannerSelection> findByStudent_StudentIdOrderBySessionNameAscCourseCodeAsc(Integer studentId);
     List<PlannerSelection> findByStudent_StudentIdAndSessionNameOrderByCourseCodeAsc(Integer studentId, String sessionName);

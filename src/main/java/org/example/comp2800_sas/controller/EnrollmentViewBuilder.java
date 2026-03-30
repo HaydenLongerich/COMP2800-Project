@@ -46,11 +46,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Builds the student Enrollment page.
- * This class is UI-only: it renders catalog filters, course cards, and add-to-calendar actions
- * from the already-loaded catalog and current planner snapshot.
- */
+// Builds the student Enrollment page.
 public class EnrollmentViewBuilder {
 
     private static final String ALL_STATUSES = "All Statuses";
@@ -69,7 +65,7 @@ public class EnrollmentViewBuilder {
             "-fx-background-color: #f8fbff; -fx-background-radius: 10; -fx-border-radius: 10; " +
                     "-fx-border-color: #cad7e5; -fx-padding: 10 12; -fx-font-size: 12px;";
 
-    // ── Pagination ──────────────────────────────────────────────────────────
+    // Number of course cards to show before the user moves to the next page.
     private static final int PAGE_SIZE = 20;
 
     private final EnrollmentCatalogService catalogService;
@@ -125,7 +121,7 @@ public class EnrollmentViewBuilder {
                 SORT_CODE_ASC
         );
 
-        // ── Page state (shared across renders) ────────────────────────────
+        // Keep the current page index outside the render lambda so filter changes can rerender cleanly.
         int[] currentPage = {0};
 
         Button clearFilters = createActionButton("Clear Filters",

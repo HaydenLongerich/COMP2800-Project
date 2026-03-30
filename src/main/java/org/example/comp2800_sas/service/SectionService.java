@@ -13,9 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-/**
- * Service layer for section lookup, scheduling, and assignment flows.
- */
+// Service layer for section lookup, scheduling, and assignment flows.
 @Service
 @Transactional
 public class SectionService {
@@ -36,15 +34,7 @@ public class SectionService {
         this.instructorRepository = instructorRepository;
     }
 
-    /**
-     * Creates and saves a new section after verifying its inputs.
-     * @param courseId The database ID of the course that the section is under.
-     * @param semesterId The database ID of the semester that the section is in.
-     * @param instructorId The database ID of the instructor teaching the section.
-     * @param sectionNumber The section number.
-     * @param maxCapacity The maximum number of students allowed in the section.
-     * @return The saved section.
-     */
+    // Creates and saves a new section after verifying its inputs.
     public Section createSection(Integer courseId, Integer semesterId, Integer instructorId, Integer sectionNumber, Integer maxCapacity) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() ->
@@ -84,11 +74,6 @@ public class SectionService {
         return sectionRepository.save(section);
     }
 
-    /**
-     *
-     * @param sectionId The database ID of the section to find.
-     * @return The section entity.
-     */
     @Transactional(readOnly = true)
     public Section getSectionById(Integer sectionId) {
         return sectionRepository.findById(sectionId)
@@ -97,42 +82,22 @@ public class SectionService {
                 );
     }
 
-    /**
-     *
-     * @param courseId The database ID of the course to search.
-     * @return A list of all sections in a course.
-     */
     @Transactional(readOnly = true)
     public List<Section> getSectionsForCourse(Integer courseId) {
         return sectionRepository.findByCourse_CourseId(courseId);
     }
 
-    /**
-     *
-     * @param semesterId The database ID of the semester to search.
-     * @return A list of all sections in a semester.
-     */
     @Transactional(readOnly = true)
     public List<Section> getSectionsForSemester(Integer semesterId) {
         return sectionRepository.findBySemester_SemesterId(semesterId);
     }
 
-    /**
-     *
-     * @param instructorId The database ID of the instructor
-     * @return A list of sections taught by an instructor.
-     */
     @Transactional(readOnly = true)
     public List<Section> getSectionsForInstructor(Integer instructorId) {
         return sectionRepository.findByInstructor_InstructorId(instructorId);
     }
 
-    /**
-     * Updates and saves the capacity of a section.
-     * @param sectionId The database ID of the section to update
-     * @param newCapacity The new capacity to set
-     * @return The updated section entity.
-     */
+    // Updates and saves the capacity of a section.
     public Section updateCapacity(Integer sectionId, int newCapacity) {
         Section section = getSectionById(sectionId);
 
@@ -145,12 +110,7 @@ public class SectionService {
         return sectionRepository.save(section);
     }
 
-    /**
-     * Updates and saves the section number of a section.
-     * @param sectionId The database ID of the section
-     * @param newSectionNumber The new section number to set to
-     * @return The updated section entity.
-     */
+    // Updates and saves the section number of a section.
     public Section updateSectionNumber(Integer sectionId, Integer newSectionNumber) {
         Section section = getSectionById(sectionId);
 
@@ -170,10 +130,7 @@ public class SectionService {
         return sectionRepository.save(section);
     }
 
-    /**
-     * Removes a section from the database.
-     * @param sectionId The database ID of the section to remove.
-     */
+    // Removes a section from the database.
     public void deleteSection(Integer sectionId) {
         if (!sectionRepository.existsById(sectionId)) {
             throw new IllegalArgumentException("Section with ID " + sectionId + " was not found.");
@@ -182,12 +139,7 @@ public class SectionService {
         sectionRepository.deleteById(sectionId);
     }
 
-    /**
-     * Assigns an instructor to a section and saves to database.
-     * @param sectionId The database ID of the section to update.
-     * @param instructorId The database ID of the instructor.
-     * @return The updated section entity.
-     */
+    // Assigns an instructor to a section and saves to database.
     public Section assignInstructor(Integer sectionId, Integer instructorId) {
         Section section = getSectionById(sectionId);
         Instructor instructor = instructorRepository.findById(instructorId)

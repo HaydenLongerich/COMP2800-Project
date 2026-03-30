@@ -31,9 +31,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
-/**
- * JavaFX controller for the reports dashboard.
- */
+// JavaFX controller for the reports dashboard.
 @Component
 @Scope("prototype")
 public class ReportsController {

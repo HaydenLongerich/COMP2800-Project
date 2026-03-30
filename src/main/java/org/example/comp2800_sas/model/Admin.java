@@ -4,9 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-/**
- * Persistent administrator account record.
- */
+// Persistent administrator account record.
 @Getter
 @Setter
 @Entity

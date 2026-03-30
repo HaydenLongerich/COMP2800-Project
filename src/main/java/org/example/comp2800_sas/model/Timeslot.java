@@ -15,9 +15,7 @@ import java.time.LocalTime;
                 @UniqueConstraint(columnNames = {"section_id", "day", "start_time"})
         }
 )
-/**
- * Persistent meeting time record attached to a section.
- */
+// Persistent meeting time record attached to a section.
 public class Timeslot {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

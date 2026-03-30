@@ -2,9 +2,7 @@ package org.example.comp2800_sas.model;
 
 import java.util.List;
 
-/**
- * Immutable planner entry representing one selected course option.
- */
+// Immutable planner entry representing one selected course option.
 public record PlannedCourseOption(
         String planId,
         String session,

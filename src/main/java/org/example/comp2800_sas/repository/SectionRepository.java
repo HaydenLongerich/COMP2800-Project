@@ -5,9 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
-/**
- * JPA repository for section records.
- */
+// JPA repository for section records.
 public interface SectionRepository extends JpaRepository<Section, Integer> {
     List<Section> findByCourse_CourseId(Integer courseId);
     List<Section> findBySemester_SemesterId(Integer semesterId);

@@ -11,9 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * JPA repository for enrollment records.
- */
+// JPA repository for enrollment records.
 public interface EnrollmentRepository extends JpaRepository<Enrollment, EnrollmentId> {
     Optional<Enrollment> findByStudent_StudentIdAndSection_SectionId(Integer studentId, Integer sectionId);
     List<Enrollment> findByStudent_StudentId(Integer studentId);

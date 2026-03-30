@@ -5,9 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
-/**
- * Immutable catalog view of a course and its available options.
- */
+// Immutable catalog view of a course and its available options.
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record EnrollmentCatalogCourse(
         @JsonProperty("course_code") String courseCode,

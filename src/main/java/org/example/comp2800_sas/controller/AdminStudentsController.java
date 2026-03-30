@@ -32,9 +32,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-/**
- * JavaFX controller for the admin students management screen.
- */
+// JavaFX controller for the admin students management screen.
 @Component
 @Scope("prototype")
 public class AdminStudentsController {

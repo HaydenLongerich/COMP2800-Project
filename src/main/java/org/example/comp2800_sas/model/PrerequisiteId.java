@@ -8,9 +8,7 @@ import lombok.Setter;
 import java.io.Serializable;
 import java.util.Objects;
 
-/**
- * Composite key for identifying a prerequisite relationship.
- */
+// Composite key for identifying a prerequisite relationship.
 @Setter
 @Getter
 @Embeddable

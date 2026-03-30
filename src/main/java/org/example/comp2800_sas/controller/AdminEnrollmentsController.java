@@ -23,9 +23,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * JavaFX controller for the admin enrollment management screen.
- */
+// JavaFX controller for the admin enrollment management screen.
 @Component
 @Scope("prototype")
 public class AdminEnrollmentsController {
@@ -92,14 +90,7 @@ public class AdminEnrollmentsController {
         loader.start();
     }
 
-    /**
-     * Syncs a student's PlannerSelection rows into ENROLLMENT rows.
-     * Strips spaces from course codes (e.g. "COMP 1047" → "COMP1047")
-     * to match the COURSE table format.
-     *
-     * If a course code has no sections in the database, it is skipped
-     * and a warning is printed to the console so you know what's missing.
-     */
+    // Syncs a student's PlannerSelection rows into ENROLLMENT rows.
     private void syncEnrollmentsForStudent(Integer studentId) {
         List<PlannerSelection> selections =
                 plannerSelectionRepository.findByStudent_StudentIdOrderBySessionNameAscCourseCodeAsc(studentId);

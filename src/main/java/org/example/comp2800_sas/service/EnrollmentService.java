@@ -10,9 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 
-/**
- * Service layer for student enrollments and enrollment status updates.
- */
+// Service layer for student enrollments and enrollment status updates.
 @Service
 @Transactional
 public class EnrollmentService {
@@ -31,12 +29,7 @@ public class EnrollmentService {
     }
 
     // ADMIN ONLY
-    /**
-     * Verifies enrollment constraints and enrolls a student in a section. Saves to database.
-     * @param studentId The database ID of the student
-     * @param sectionId The database ID of the section
-     * @return A new Enrollment object with values filled if successful.
-     */
+    // Verifies enrollment constraints and enrolls a student in a section. Saves to database.
     public Enrollment enrollStudent(Integer studentId, Integer sectionId) {
         if (studentInSection(studentId, sectionId)) {
             throw new IllegalStateException("Student already enrolled in section");
@@ -61,24 +54,14 @@ public class EnrollmentService {
     }
 
     // ADMIN ONLY
-    /**
-     * Changes the enrollment status of a student in a section to DROPPED. Saves to database.
-     * Does not delete the enrollment row.
-     * @param studentId The student to drop
-     * @param sectionId The section to drop from
-     */
+    // Changes the enrollment status of a student in a section to DROPPED. Saves to database.
     public void dropStudent(Integer studentId, Integer sectionId) {
         Enrollment enrollment = getEnrollment(studentId, sectionId);
         enrollment.setStatus(EnrollmentStatus.DROPPED);
         enrollmentRepository.save(enrollment);
     }
 
-    /**
-     * Finds the entry for a student in a section.
-     * @param studentId The database ID of the student in the section
-     * @param sectionId The database ID of the section
-     * @return An Enrollment object
-     */
+    // Finds the entry for a student in a section.
     @Transactional(readOnly = true)
     public Enrollment getEnrollment(Integer studentId, Integer sectionId) {
         return enrollmentRepository
@@ -88,34 +71,21 @@ public class EnrollmentService {
                 );
     }
 
-    /**
-     * Finds all enrollments for a student across all semesters.
-     * @param studentId The database ID of the student to search for.
-     * @return A list of enrollments for the student.
-     */
+    // Finds all enrollments for a student across all semesters.
     @Transactional(readOnly = true)
     public List<Enrollment> getEnrollmentsForStudent(Integer studentId) {
         return enrollmentRepository
                 .findByStudent_StudentId(studentId);
     }
 
-    /**
-     * Finds all enrollments for a student in a specific semester.
-     * @param studentId The database ID of the student to search for.
-     * @param semesterId The database ID of the semester to search in.
-     * @return A list of enrollments for the student in the semester.
-     */
+    // Finds all enrollments for a student in a specific semester.
     @Transactional(readOnly = true)
     public List<Enrollment> getEnrollmentsForStudentInSemester(Integer studentId, Integer semesterId) {
         return enrollmentRepository
                 .findByStudent_StudentIdAndSection_Semester_SemesterId(studentId, semesterId);
     }
 
-    /**
-     * Finds all enrollments in a section.
-     * @param sectionId The database ID of the section to search.
-     * @return A list of enrollments for the section.
-     */
+    // Finds all enrollments in a section.
     @Transactional(readOnly = true)
     public List<Enrollment> getEnrollmentsForSection(Integer sectionId) {
         return enrollmentRepository
@@ -123,24 +93,14 @@ public class EnrollmentService {
     }
 
     // ADMIN ONLY
-    /**
-     * Updates the EnrollmentStatus of a student in a section and saves it to the database.
-     * @param studentId The database ID of the student to update.
-     * @param sectionId The database ID of the section to update.
-     * @param status The EnrollmentStatus to update to.
-     */
+    // Updates the EnrollmentStatus of a student in a section and saves it to the database.
     public void updateEnrollmentStatus(Integer studentId, Integer sectionId, EnrollmentStatus status) {
         Enrollment enrollment = getEnrollment(studentId, sectionId);
         enrollment.setStatus(status);
         enrollmentRepository.save(enrollment);
     }
 
-    /**
-     * Updates the grade of a student in a section and saves it to the database.
-     * @param studentId The database ID of the student to update.
-     * @param sectionId The database ID of the section to update.
-     * @param grade A BigDecimal representation of the grade to set.
-     */
+    // Updates the grade of a student in a section and saves it to the database.
     public void updateGrade(Integer studentId, Integer sectionId, BigDecimal grade) {
         Enrollment enrollment = getEnrollment(studentId, sectionId);
 
@@ -154,11 +114,6 @@ public class EnrollmentService {
         enrollmentRepository.save(enrollment);
     }
 
-    /**
-     * @param studentId The student to search for.
-     * @param sectionId The section to search in.
-     * @return True, if the student is in the section, otherwise false.
-     */
     @Transactional(readOnly = true)
     public boolean studentInSection(Integer studentId, Integer sectionId) {
         return enrollmentRepository
@@ -169,10 +124,7 @@ public class EnrollmentService {
     // ADMIN SYNC — NEW METHODS
     // ---------------------------------------------------------------
 
-    /**
-     * Returns true if ANY enrollment row exists for this student+section regardless of status.
-     * Used during admin sync to avoid duplicate key errors.
-     */
+    // Returns true if ANY enrollment row exists for this student+section regardless of status.
     @Transactional(readOnly = true)
     public boolean hasEnrollmentRecord(Integer studentId, Integer sectionId) {
         return enrollmentRepository
@@ -180,12 +132,7 @@ public class EnrollmentService {
                 .isPresent();
     }
 
-    /**
-     * Enrolls a student into a section WITHOUT checking prerequisites or capacity.
-     * Used by the admin sync flow so planner selections automatically appear
-     * in the Recorded Enrollment History tab.
-     * Does nothing if an enrollment record already exists (any status).
-     */
+    // Enrolls a student into a section WITHOUT checking prerequisites or capacity.
     public void adminEnrollStudent(Integer studentId, Integer sectionId) {
         if (hasEnrollmentRecord(studentId, sectionId)) {
             return; // already exists — skip to avoid duplicate key
@@ -202,12 +149,7 @@ public class EnrollmentService {
 
     // ---------------------------------------------------------------
 
-    /**
-     * Checks the students past courses against the course prerequisites to see if the student is eligible to take the class.
-     * @param studentId The database ID of the student whose records will be searched.
-     * @param courseId The database ID of the course the student wants to take.
-     * @return True, if the student meets the prerequisites for the course, otherwise false.
-     */
+    // Checks the students past courses against the course prerequisites to see if the student is eligible to take the class.
     private boolean meetsCoursePrerequisites(Integer studentId, Integer courseId) {
         List<Prerequisite> prerequisites = prerequisiteRepository.findByCourse_CourseId(courseId);
 
@@ -229,10 +171,6 @@ public class EnrollmentService {
         return true;
     }
 
-    /**
-     * @param sectionId The database ID of the section to check.
-     * @return True, if the section is full, otherwise false.
-     */
     @Transactional(readOnly = true)
     public boolean sectionFull(Integer sectionId) {
         Section section = getSectionById(sectionId);
@@ -243,11 +181,7 @@ public class EnrollmentService {
         return enrolled >= section.getMaxCapacity();
     }
 
-    /**
-     * Calculates the number of seats remaining in a section.
-     * @param sectionId The database ID of the section to check.
-     * @return The number of seats remaining in a section.
-     */
+    // Calculates the number of seats remaining in a section.
     @Transactional(readOnly = true)
     public int getSeatsLeftInSection(Integer sectionId) {
         Section section = getSectionById(sectionId);
@@ -258,11 +192,7 @@ public class EnrollmentService {
         return section.getMaxCapacity() - enrolled;
     }
 
-    /**
-     * Finds a section by its database ID.
-     * @param sectionId The database ID of the section to search for.
-     * @return A section object corresponding to the database ID.
-     */
+    // Finds a section by its database ID.
     private Section getSectionById(Integer sectionId) {
         return sectionRepository.findById(sectionId)
                 .orElseThrow(() ->

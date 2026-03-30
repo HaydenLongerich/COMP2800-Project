@@ -2,9 +2,7 @@ package org.example.comp2800_sas.model;
 
 import java.time.LocalTime;
 
-/**
- * Immutable scheduled block rendered on the weekly planner calendar.
- */
+// Immutable scheduled block rendered on the weekly planner calendar.
 public record PlannerMeetingBlock(
         String blockId,
         String planId,

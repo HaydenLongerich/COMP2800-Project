@@ -38,11 +38,7 @@ import java.util.Set;
 
 @Component
 @Scope("prototype")
-/**
- * Builds the Advisors page from catalog teaching data.
- * This view intentionally filters and cleans instructor data for display without
- * changing the underlying Enrollment/Calendar catalog content.
- */
+// Builds the Advisors page from catalog teaching data.
 public class FacultyController {
 
     @Autowired private EnrollmentCatalogService enrollmentCatalogService;

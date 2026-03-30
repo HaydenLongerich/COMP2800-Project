@@ -22,11 +22,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Component;
 
 @Component
-/**
- * Main student shell controller.
- * It owns the top navigation bar and swaps the large content area between
- * Home, Courses, Enrollment, Calendar, Advisors, and Reports.
- */
+// Main student shell controller.
 public class DashboardController {
 
     @Autowired private ConfigurableApplicationContext applicationContext;
@@ -147,6 +143,7 @@ public class DashboardController {
 
     private void showEnrollmentScreen() {
         showSpinner();
+        semesterPlannerService.refreshCatalogState();
 
         Task<Parent> task = new Task<>() {
             @Override
@@ -158,7 +155,7 @@ public class DashboardController {
                         enrollmentCatalogService,
                         semesterPlannerService,
                         DashboardController.this::showPlanner,
-                        () -> {}
+                        DashboardController.this::handlePlannerUpdated
                 );
 
                 return builder.build(catalog);
@@ -182,6 +179,7 @@ public class DashboardController {
 
     private void showPlannerScreen() {
         showSpinner();
+        semesterPlannerService.refreshCatalogState();
 
         Task<Parent> task = new Task<>() {
             @Override
@@ -193,7 +191,7 @@ public class DashboardController {
                         enrollmentCatalogService,
                         semesterPlannerService,
                         DashboardController.this::showEnrollment,
-                        () -> {}
+                        DashboardController.this::handlePlannerUpdated
                 );
 
                 return builder.build(catalog);
@@ -224,6 +222,15 @@ public class DashboardController {
         spinnerPane.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
 
         contentArea.getChildren().setAll(spinnerPane);
+    }
+
+    private void handlePlannerUpdated() {
+        semesterPlannerService.refreshCatalogState();
+        if ("home".equals(currentView)) {
+            showHome();
+        } else if ("planner".equals(currentView)) {
+            showPlannerScreen();
+        }
     }
 
     private void showContent(Parent content) {

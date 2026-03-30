@@ -4,9 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-/**
- * Advisor profile model used by the faculty and advising views.
- */
+// Advisor profile model used by the faculty and advising views.
 @Getter
 @Setter
 @Entity

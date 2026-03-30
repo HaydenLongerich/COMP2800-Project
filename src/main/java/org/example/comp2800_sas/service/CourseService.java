@@ -7,9 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-/**
- * Service layer for creating, updating, and listing courses.
- */
+// Service layer for creating, updating, and listing courses.
 @Service
 @Transactional
 public class CourseService {
@@ -20,13 +18,7 @@ public class CourseService {
         this.courseRepository = courseRepository;
     }
 
-    /**
-     * Creates a course entry and saves it to the database.
-     * @param code The course code.
-     * @param title The course title.
-     * @param description Optionally, the course description.
-     * @return The new course entry.
-     */
+    // Creates a course entry and saves it to the database.
     // ADMIN ONLY
     public Course createCourse(String code, String title, String description) {
         String normalizedCode = normalizeCode(code);
@@ -45,20 +37,12 @@ public class CourseService {
         return courseRepository.save(course);
     }
 
-    /**
-     *
-     * @return All courses in the database.
-     */
     @Transactional(readOnly = true)
     public List<Course> getAllCourses() {
         return courseRepository.findAll();
     }
 
-    /**
-     * Finds a course by its database ID.
-     * @param courseId The database ID of the course to find.
-     * @return The course entity found.
-     */
+    // Finds a course by its database ID.
     @Transactional(readOnly = true)
     public Course getCourseById(Integer courseId) {
         return courseRepository.findById(courseId)
@@ -67,11 +51,7 @@ public class CourseService {
                 );
     }
 
-    /**
-     * Finds a course by its course code (e.g. COMP2800).
-     * @param code The course code of the course.
-     * @return The course entity found.
-     */
+    // Finds a course by its course code (e.g. COMP2800).
     @Transactional(readOnly = true)
     public Course getCourseByCode(String code) {
         String normalizedCode = normalizeCode(code);
@@ -86,13 +66,7 @@ public class CourseService {
                 );
     }
 
-    /**
-     * Updates the fields of a course entry and saves to the database.
-     * @param courseId The database ID of the course to update.
-     * @param newTitle The new title of the course.
-     * @param newDescription The new description of the course.
-     * @return The update course entity.
-     */
+    // Updates the fields of a course entry and saves to the database.
     // ADMIN ONLY
     public Course updateCourse(Integer courseId, String newTitle, String newDescription) {
         Course course = getCourseById(courseId);
@@ -110,10 +84,7 @@ public class CourseService {
         return courseRepository.save(course);
     }
 
-    /**
-     * Removes a course from the database.
-     * @param courseId The database ID of the course to delete.
-     */
+    // Removes a course from the database.
     // ADMIN ONLY
     public void deleteCourse(Integer courseId) {
         if (!courseRepository.existsById(courseId)) {
@@ -123,11 +94,7 @@ public class CourseService {
         courseRepository.deleteById(courseId);
     }
 
-    /**
-     * Validates course information for creating courses.
-     * @param code The course code.
-     * @param title The course title.
-     */
+    // Validates course information for creating courses.
     private void validateCourseData(String code, String title) {
         if (code == null || code.isBlank()) {
             throw new IllegalArgumentException("Course code cannot be blank.");
@@ -138,11 +105,7 @@ public class CourseService {
         }
     }
 
-    /**
-     * Trims and uppercases course codes (" comp2800 " -> "COMP2800")
-     * @param code The code to be normalized.
-     * @return The normalized code.
-     */
+    // Trims and uppercases course codes (" comp2800 " -> "COMP2800")
     private String normalizeCode(String code) {
         if (code == null) {
             return null;
@@ -150,11 +113,7 @@ public class CourseService {
         return code.trim().toUpperCase();
     }
 
-    /**
-     * Trims text.
-     * @param value Text to be normalized.
-     * @return Normalized text, or null if the input is null.
-     */
+    // Trims text.
     private String normalizeText(String value) {
         if (value == null) {
             return null;
@@ -162,11 +121,7 @@ public class CourseService {
         return value.trim();
     }
 
-    /**
-     * Trims nullable text.
-     * @param value Text to be trimmed.
-     * @return Normalized text, or null. No empty strings.
-     */
+    // Trims nullable text.
     private String normalizeNullableText(String value) {
         if (value == null) {
             return null;

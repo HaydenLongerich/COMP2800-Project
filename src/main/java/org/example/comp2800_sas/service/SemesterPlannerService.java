@@ -26,11 +26,7 @@ import java.util.Optional;
 
 @Service
 @Transactional
-/**
- * Owns the student's draft calendar state.
- * It resolves saved planner selections against the current catalog, exposes
- * session-level planner views, and caches derived metrics so the UI can render quickly.
- */
+// Owns the student's draft calendar state.
 public class SemesterPlannerService {
 
     private final PlannerSelectionRepository plannerSelectionRepository;

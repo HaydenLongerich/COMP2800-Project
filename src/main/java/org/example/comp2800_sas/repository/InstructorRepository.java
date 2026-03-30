@@ -5,9 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
-/**
- * JPA repository for instructor records.
- */
+// JPA repository for instructor records.
 public interface InstructorRepository extends JpaRepository<Instructor, Integer> {
     List<Instructor> findByNameContainingIgnoreCase(String name);
 

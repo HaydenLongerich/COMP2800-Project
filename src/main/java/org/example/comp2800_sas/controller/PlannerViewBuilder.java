@@ -38,11 +38,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-/**
- * Builds the Calendar page.
- * The page combines planner state, conflicts, a weekly grid, and a lightweight
- * quick-add catalog sidebar for the currently selected session.
- */
+// Builds the Calendar page.
 public class PlannerViewBuilder {
 
     private static final String SURFACE_CARD_STYLE =
@@ -63,7 +59,7 @@ public class PlannerViewBuilder {
     private static final double EVENT_INSET        = 6;
     private static final DateTimeFormatter TIME_LABEL_FORMATTER = DateTimeFormatter.ofPattern("h:mm a");
 
-    // ── Quick Add cap ────────────────────────────────────────────────────────
+    // Limit quick-add results so the sidebar stays responsive while filtering.
     private static final int QUICK_ADD_CAP = 30;
 
     private final EnrollmentCatalogService catalogService;
